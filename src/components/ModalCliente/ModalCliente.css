@@ -1,0 +1,245 @@
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.7);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.modal-cliente {
+    background-color: #2a2a2a;
+    border-radius: 8px;
+    width: 700px;
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+}
+
+.modal-header {
+    padding: 15px 20px;
+    border-bottom: 1px solid #444;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modal-header h3 {
+    color: #f0660a;
+    margin: 0;
+    font-size: 1.3rem;
+}
+
+.close-btn {
+    background: none;
+    border: none;
+    color: #ccc;
+    font-size: 1.5rem;
+    cursor: pointer;
+    padding: 5px 10px;
+}
+
+.close-btn:hover {
+    color: #fff;
+}
+
+/* Estilos para a área de busca */
+.busca-container {
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.busca-input-container {
+    display: flex;
+    gap: 10px;
+}
+
+.busca-input {
+    flex: 1;
+    padding: 10px 15px;
+    background-color: #1e1e1e;
+    border: 1px solid #444;
+    border-radius: 4px;
+    color: #fff;
+    font-size: 1rem;
+}
+
+.busca-input:focus {
+    outline: none;
+    border-color: #f0660a;
+}
+
+.btn-buscar {
+    padding: 0 20px;
+    background-color: #f0660a;
+    color: #000;
+    border: none;
+    border-radius: 4px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.btn-buscar:hover {
+    background-color: #ff8c00;
+}
+
+.resultados-container {
+    flex: 1;
+    overflow-y: auto;
+    max-height: 300px;
+}
+
+.resultados-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.resultados-table th {
+    background-color: #333;
+    color: #f0660a;
+    padding: 12px 10px;
+    text-align: left;
+    position: sticky;
+    top: 0;
+}
+
+.resultados-table td {
+    padding: 12px 10px;
+    border-bottom: 1px solid #444;
+}
+
+.resultados-table tr:hover {
+    background-color: #333;
+}
+
+.btn-selecionar {
+    padding: 5px 10px;
+    background-color: #444;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.btn-selecionar:hover {
+    background-color: #555;
+}
+
+.sem-resultados {
+    padding: 30px;
+    text-align: center;
+    color: #999;
+    font-size: 1.1rem;
+}
+
+.novo-cliente-footer {
+    display: flex;
+    justify-content: flex-end;
+}
+
+.btn-novo-cliente {
+    padding: 10px 15px;
+    background-color: transparent;
+    color: #f0660a;
+    border: 1px solid #f0660a;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-novo-cliente:hover {
+    background-color: rgba(240, 102, 10, 0.1);
+}
+
+/* Estilos para a área de cadastro */
+.cadastro-container {
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.form-group label {
+    color: #ccc;
+    font-size: 0.9rem;
+}
+
+.form-group input {
+    padding: 10px 15px;
+    background-color: #1e1e1e;
+    border: 1px solid #444;
+    border-radius: 4px;
+    color: #fff;
+    font-size: 1rem;
+}
+
+.form-group input:focus {
+    outline: none;
+    border-color: #f0660a;
+}
+
+.form-buttons {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 20px;
+}
+
+.btn-voltar {
+    padding: 10px 15px;
+    background-color: #444;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.btn-voltar:hover {
+    background-color: #555;
+}
+
+.btn-cadastrar {
+    padding: 10px 20px;
+    background-color: #f0660a;
+    color: #000;
+    border: none;
+    border-radius: 4px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.btn-cadastrar:hover {
+    background-color: #ff8c00;
+}
+
+/* Scrollbar */
+.resultados-container::-webkit-scrollbar {
+    width: 8px;
+}
+
+.resultados-container::-webkit-scrollbar-track {
+    background: #2a2a2a;
+}
+
+.resultados-container::-webkit-scrollbar-thumb {
+    background: #555;
+    border-radius: 4px;
+}
+
+.resultados-container::-webkit-scrollbar-thumb:hover {
+    background: #f0660a;
+}

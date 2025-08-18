@@ -1,0 +1,268 @@
+/* Cores principais */
+:root {
+  --primary-bg: #1e1e1e;
+  --secondary-bg: #2a2a2a;
+  --accent-color: #f0660a;
+  --text-primary: #ffffff;
+  --text-secondary: #cccccc;
+  --border-color: #444444;
+}
+
+/* Layout principal */
+.pdv-container {
+  display: flex;
+  height: 100vh;
+  background-color: var(--primary-bg);
+  color: var(--text-primary);
+}
+
+/* Side Menu */
+.side-menu {
+  width: 220px;
+  background-color: var(--secondary-bg);
+  border-right: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+}
+.logo-container {
+  width: 60px;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.info-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9rem;
+}
+
+.info-label {
+  color: #f0660a;
+  font-weight: 500;
+  min-width: 70px;
+}
+
+.cliente-info {
+  margin-top: 5px;
+  padding-top: 5px;
+  border-top: 1px dashed #444;
+}
+.menu-header {
+  display: flex;
+    align-items: center;
+    gap: 20px;
+    padding: 10px 15px;
+    background-color: #2a2a2a;
+    border-bottom: 1px solid #444;
+    flex-direction: column;
+}
+.header-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.logo-img {
+  max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+}
+
+.user-info {
+  text-align: center;
+}
+
+.user-name {
+  display: block;
+  font-weight: bold;
+  margin-bottom: 5px;
+}
+
+.sale-date {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.menu-atalhos {
+  padding: 15px;
+}
+
+.menu-atalhos h3 {
+  color: var(--accent-color);
+  margin-bottom: 15px;
+  font-size: 1.1rem;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.menu-atalhos ul {
+  list-style: none;
+}
+
+.menu-atalhos li {
+  margin-bottom: 10px;
+}
+
+.atalho-btn {
+  width: 100%;
+  background: transparent;
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  padding: 10px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.atalho-btn:hover {
+  background-color: rgba(240, 102, 10, 0.1);
+  border-color: var(--accent-color);
+}
+
+.atalho-key {
+  background-color: var(--accent-color);
+  color: #000;
+  font-weight: bold;
+  padding: 2px 8px;
+  border-radius: 3px;
+  margin-right: 10px;
+  min-width: 30px;
+  text-align: center;
+}
+
+.atalho-label {
+  flex-grow: 1;
+  text-align: left;
+}
+
+/* Área principal */
+.pdv-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 20px;
+}
+
+.tabela-container {
+  flex: 1;
+  overflow-y: auto;
+  margin-bottom: 20px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+}
+
+.tabela-venda {
+  width: 100%;
+  border-collapse: collapse;
+  background-color: var(--secondary-bg);
+}
+
+.tabela-venda th {
+  background-color: #333;
+  color: var(--accent-color);
+  padding: 12px 10px;
+  text-align: left;
+  font-weight: 600;
+  position: sticky;
+  top: 0;
+}
+
+.tabela-venda td {
+  padding: 12px 10px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.tabela-venda tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.tabela-venda tbody tr:hover {
+  background-color: #333;
+}
+
+.produto-info {
+  display: flex;
+  flex-direction: column;
+  
+}
+
+.produto-nome {
+  font-weight: 500;
+}
+
+.produto-marca {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  margin-top: 3px;
+}
+
+.text-center {
+  text-align: left;
+  
+}
+
+.text-right {
+  text-align: left;
+}
+
+/* Resumo da venda */
+.resumo-venda {
+  background-color: var(--secondary-bg);
+  border-radius: 4px;
+  padding: 15px;
+}
+
+.total-linha {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  font-size: 1rem;
+}
+
+.desconto {
+  color: #ff6b6b;
+}
+
+.total-geral {
+  font-weight: bold;
+  color: var(--accent-color);
+  font-size: 1.1rem;
+  border-top: 1px solid var(--border-color);
+  margin-top: 5px;
+  padding-top: 10px;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #2a2a2a;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #555;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-color);
+}
+
+@media (max-width: 768px) {
+  .menu-header {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 10px;
+  }
+  
+  .header-info {
+      width: 100%;
+  }
+}
