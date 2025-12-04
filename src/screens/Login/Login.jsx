@@ -11,24 +11,22 @@ const PDVLogin = () => {
     const [msgModal, setMsgModal] = useState("");
     const [modalAberta, setModalAberta] = useState(false);
 
-     const { login } = useAuth();
+    const { login } = useAuth();
     const navigate = useNavigate();
 
 
     const logarPDV = () => {
-       
-
         if (loginText.trim() === "" || senha.trim() === "") {
             setModalAberta(true);
             setMsgModal("Você precisa informar o login e a senha.");
             return;
-        } 
+        }
 
         api.post("login", { login: loginText, senha, acesso: "pdv" })
             .then((res) => {
                 console.log(res);
+                login(res.data.valor);
                 navigate('/pdv');
-               login(res.data.valor);
             })
             .catch((er) => {
                 console.log("entrou no erro", er);

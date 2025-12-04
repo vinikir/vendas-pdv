@@ -3,6 +3,7 @@ import './pdv.css'; // Arquivo CSS para estilos
 import moment from 'moment-timezone';
 import BuscarItem from '../../components/ModalBuscaItens/ModalBuscaItens';
 import ModalCliente from '../../components/ModalCliente/ModalCliente';
+import useUsuarioStore from '../../store/useUsuarioStore';
 
 const PDV = () => {
 
@@ -11,6 +12,8 @@ const PDV = () => {
     const [clienteSelecionado, setClienteSelecionado] = useState({})
     const [mostrarModalCliente, setMostrarModalCliente] = useState(false);
     const horaAtualRef = useRef(moment());
+    const usuario = useUsuarioStore((state) => state.usuario);
+    const nomeOperador = usuario?.nome || "Operador";
 
     useEffect(() => {
         const intervalo = setInterval(() => {
@@ -18,14 +21,14 @@ const PDV = () => {
         }, 1000);
         const handleKeyDown = (e) => {
             if (e.key === "F1") {
-                e.preventDefault(); // evita abrir a ajuda do navegador
+                e.preventDefault();
                 setMostraModal(true)
-                // faça algo aqui
+               
             }
             if (e.key === "F4") {
-                e.preventDefault(); // evita abrir a ajuda do navegador
+                e.preventDefault(); 
                 limparBag()
-                // faça algo aqui
+               
             }
         };
 
@@ -67,7 +70,7 @@ const PDV = () => {
                     <div className="header-info">
                         <div className="info-line">
                             <span className="info-label">Operador:</span>
-                            <span className="info-value">Vinicius</span>
+                            <span className="info-value">{nomeOperador}</span>
                         </div>
                         <div className="info-line">
                             <span className="info-label">Data/Hora:</span>
