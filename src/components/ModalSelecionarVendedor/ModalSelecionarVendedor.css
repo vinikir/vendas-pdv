@@ -1,0 +1,190 @@
+.vnd-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.65);
+    backdrop-filter: blur(2px);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1200;
+    animation: vndFadeIn 0.15s ease-out;
+}
+
+@keyframes vndFadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.vnd-modal {
+    background-color: #232323;
+    border: 1px solid #3d3d3d;
+    border-radius: 12px;
+    width: 380px;
+    max-width: 92vw;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.55);
+    animation: vndPopIn 0.15s ease-out;
+}
+
+@keyframes vndPopIn {
+    from { opacity: 0; transform: translateY(8px) scale(0.98); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.vnd-header {
+    padding: 16px 22px;
+    border-bottom: 1px solid #3d3d3d;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.vnd-header h3 {
+    color: #fff;
+    margin: 0;
+    font-size: 1.15rem;
+    font-weight: 700;
+}
+
+.vnd-close-btn {
+    background: none;
+    border: none;
+    color: #a8a8a8;
+    font-size: 1.5rem;
+    line-height: 1;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 6px;
+    transition: background 0.15s, color 0.15s;
+}
+
+.vnd-close-btn:hover {
+    color: #fff;
+    background: #3a3a3a;
+}
+
+.vnd-form {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 20px 22px;
+}
+
+.vnd-descricao {
+    margin: 0;
+    color: #a8a8a8;
+    font-size: 0.85rem;
+}
+
+.vnd-form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.vnd-form-group label {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: #a8a8a8;
+}
+
+.vnd-form-group input {
+    background-color: #1c1c1c;
+    border: 1px solid #3d3d3d;
+    border-radius: 8px;
+    color: #fff;
+    padding: 12px 14px;
+    font-size: 0.95rem;
+    outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.vnd-form-group input:focus {
+    border-color: #4CAF50;
+    box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.18);
+}
+
+.vnd-senha-wrapper {
+    display: flex;
+    gap: 8px;
+}
+
+.vnd-senha-wrapper input {
+    flex: 1;
+}
+
+.vnd-toggle-senha {
+    background: transparent;
+    border: 1px solid #3d3d3d;
+    color: #a8a8a8;
+    border-radius: 8px;
+    padding: 0 12px;
+    font-size: 0.78rem;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background-color 0.15s;
+}
+
+.vnd-toggle-senha:hover {
+    background-color: #3a3a3a;
+}
+
+.vnd-erro {
+    background-color: rgba(229, 115, 115, 0.12);
+    border: 1px solid #e57373;
+    color: #e57373;
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 0.85rem;
+}
+
+.vnd-footer {
+    display: flex;
+    gap: 12px;
+    margin-top: 4px;
+}
+
+.vnd-btn-cancelar {
+    flex: 1;
+    padding: 12px;
+    background: transparent;
+    border: 1px solid #3d3d3d;
+    color: #a8a8a8;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: background-color 0.15s;
+}
+
+.vnd-btn-cancelar:hover {
+    background-color: #3a3a3a;
+}
+
+.vnd-btn-confirmar {
+    flex: 1;
+    padding: 12px;
+    background-color: #4CAF50;
+    border: none;
+    color: #fff;
+    font-weight: 700;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: background-color 0.15s;
+}
+
+.vnd-btn-confirmar:hover {
+    background-color: #43A047;
+}
+
+.vnd-btn-confirmar:disabled,
+.vnd-btn-cancelar:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}

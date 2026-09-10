@@ -1,59 +1,85 @@
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  height: 100vh;
-  width: 100vw;
-  background-color: rgba(0, 0, 0, 0.7); /* Fundo escuro semi-transparente */
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
+.am-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100vh;
+    width: 100vw;
+    background-color: rgba(0, 0, 0, 0.65);
+    backdrop-filter: blur(2px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+    animation: amFadeIn 0.15s ease-out;
 }
 
-.modal-content {
-  background-color: #2b2b2b;
-  color: #fff;
-  padding: 30px 40px;
-  border-radius: 15px;
-  box-shadow: 0px 8px 24px rgba(0, 0, 0, 0.5);
-  position: relative;
-  width: 90%;
-  max-width: 400px;
-  text-align: center;
+@keyframes amFadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
 }
 
-.modal-content p {
-  font-size: 18px;
-  margin-bottom: 20px;
+.am-content {
+    background-color: #232323;
+    border: 1px solid #3d3d3d;
+    color: #fff;
+    padding: 32px 36px 28px;
+    border-radius: 12px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.55);
+    position: relative;
+    width: 90%;
+    max-width: 400px;
+    text-align: center;
+    animation: amPopIn 0.15s ease-out;
 }
 
-.close-button {
-  position: absolute;
-  top: 10px;
-  right: 15px;
-  font-size: 28px;
-  color: #fff;
-  cursor: pointer;
-  transition: color 0.3s ease;
+@keyframes amPopIn {
+    from { opacity: 0; transform: translateY(8px) scale(0.98); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
-.close-button:hover {
-  color: #f0660a;
+.am-msg {
+    font-size: 1rem;
+    color: #ddd;
+    margin: 4px 0 22px;
+    line-height: 1.5;
 }
 
-.modal-content button {
-  background-color: #f0660a;
-  border: none;
-  color: #fff;
-  font-weight: bold;
-  font-size: 16px;
-  padding: 12px 25px;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: background-color 0.3s ease;
+.am-close {
+    position: absolute;
+    top: 10px;
+    right: 12px;
+    background: none;
+    border: none;
+    font-size: 1.4rem;
+    line-height: 1;
+    color: #a8a8a8;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 6px;
+    transition: background 0.15s, color 0.15s;
 }
 
-.modal-content button:hover {
-  background-color: #ac4908;
+.am-close:hover {
+    color: #fff;
+    background: #3a3a3a;
+}
+
+.am-btn {
+    background-color: #4CAF50;
+    border: none;
+    color: #fff;
+    font-weight: 700;
+    font-size: 0.95rem;
+    padding: 12px 28px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background-color 0.15s, transform 0.1s;
+}
+
+.am-btn:hover {
+    background-color: #43A047;
+}
+
+.am-btn:active {
+    transform: scale(0.99);
 }
