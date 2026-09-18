@@ -1,6 +1,7 @@
 import moment from 'moment-timezone';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
+import { LOGO_GEM_BASE64 } from './logoGem';
 
 const formatCurrency = (value) => Number(value || 0).toFixed(2).replace('.', ',');
 const escapeHtml = (value) =>
@@ -18,7 +19,7 @@ export const criarHtmlOrcamento = ({
     vendedor,
     cliente,
     itens = [],
-    logoUrl = 'https://i.imgur.com/9Hv8LYj.png',
+    logoUrl = LOGO_GEM_BASE64,
     dataOrcamento = moment(),
     diasValidade = 30,
 }) => {
