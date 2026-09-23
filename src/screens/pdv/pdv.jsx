@@ -14,6 +14,7 @@ import useUsuarioStore from '../../store/useUsuarioStore';
 import { useAuth } from '../../Contexts/AuthContext';
 import { gerarEBaixarPdfVenda } from '../../utils/pdfVenda';
 import { gerarEBaixarPdfOrcamento } from '../../utils/pdfOrcamento';
+import { buscarTaxasPagamento, calcularTaxaPagamento, calcularTaxasPagamentos, mensagemTaxaPendente, mensagemTaxasPendentes } from '../../utils/taxasPagamento';
 
 const obterIdCliente = (cliente) => cliente?._id?.$oid || cliente?._id;
 const obterIdRegistro = (doc) => doc?._id?.$oid || doc?._id;
@@ -35,7 +36,13 @@ const PDV = () => {
     const [mostrarModalVendas, setMostrarModalVendas] = useState(false);
     const [metodoAtual, setMetodoAtual] = useState('dinheiro');
     const [valorPagamentoAtual, setValorPagamentoAtual] = useState('');
-    const [pagamentosAdicionados, setPagamentosAdicionados] = useState([]); // { metodo, valor, troco }
+    const [pagamentosAdicionados, setPagamentosAdicionados] = useState([]); // { metodo, valor, troco, qtdParcelas }
+    // Taxas da maquininha: prévia do líquido e bloqueio quando o cartão não tem taxa cadastrada.
+    const [taxasPagamento, setTaxasPagamento] = useState([]);
+    const [parcelasCredito, setParcelasCredito] = useState(1);
+    // Override da taxa: dígitos em centavos, vazio = usa a taxa cadastrada.
+    const [taxaManualDigitos, setTaxaManualDigitos] = useState('');
+    const [editandoTaxa, setEditandoTaxa] = useState(false);
     const [finalizando, setFinalizando] = useState(false);
     const [msgFinalizar, setMsgFinalizar] = useState('');
     const [msgModal, setMsgModal] = useState('');
@@ -81,6 +88,12 @@ const PDV = () => {
         logout();
         navigate('/login');
     }
+
+    useEffect(() => {
+        buscarTaxasPagamento()
+            .then(setTaxasPagamento)
+            .catch((erro) => console.error('Erro ao carregar taxas de pagamento:', erro));
+    }, []);
 
     useEffect(() => {
         const intervalo = setInterval(() => {
@@ -403,6 +416,9 @@ const PDV = () => {
         setMsgFinalizar('');
         setPagamentosAdicionados([]);
         setMetodoAtual('dinheiro');
+        setParcelasCredito(1);
+        setTaxaManualDigitos('');
+        setEditandoTaxa(false);
         setValorPagamentoAtual(numeroParaDigitos(totalComDesconto));
         setMostrarModalFinalizar(true);
     }
@@ -439,14 +455,73 @@ const PDV = () => {
 
         const valorAplicado = Math.min(valor, faltanteAtual);
         const troco = permiteExcedente ? arredondar(Math.max(0, valor - faltanteAtual)) : 0;
+        const qtdParcelas = metodoAtual === 'credito' ? parcelasCredito : 1;
+        const valorTaxaManual = editandoTaxa && taxaManualDigitos !== ''
+            ? digitosParaNumero(taxaManualDigitos)
+            : undefined;
 
-        const novaLista = [...pagamentosAdicionados, { metodo: metodoAtual, valor: arredondar(valorAplicado), valorRecebido: arredondar(valor), troco }];
+        if (valorTaxaManual !== undefined && valorTaxaManual > valorAplicado) {
+            setMsgFinalizar('A taxa não pode ser maior que o valor do pagamento.');
+            return;
+        }
+
+        // Cartão sem taxa cadastrada nem taxa manual não entra na venda.
+        const taxaCalculada = calcularTaxaPagamento(taxasPagamento, {
+            metodo: metodoAtual,
+            valor: valorAplicado,
+            qtdParcelas,
+            valorTaxaManual
+        });
+
+        if (taxaCalculada.exigeTaxa && !taxaCalculada.taxaCadastrada) {
+            setMsgFinalizar(mensagemTaxaPendente(metodoAtual, qtdParcelas));
+            return;
+        }
+
+        const novoPagamento = {
+            metodo: metodoAtual,
+            valor: arredondar(valorAplicado),
+            valorRecebido: arredondar(valor),
+            troco,
+            qtdParcelas,
+            valorTaxa: taxaCalculada.valorTaxa,
+            valorLiquido: taxaCalculada.valorLiquido,
+            percentualTaxa: taxaCalculada.percentual,
+            taxaManual: taxaCalculada.taxaManual,
+            ...(valorTaxaManual !== undefined ? { valorTaxaManual } : {})
+        };
+
+        if (metodoAtual === 'credito') {
+            novoPagamento.tipoCredito = qtdParcelas === 1 ? 'avista' : 'parcelado';
+            novoPagamento.descricaoMetodo = qtdParcelas === 1 ? 'Crédito à vista (1x)' : `Crédito parcelado (${qtdParcelas}x)`;
+        }
+
+        const novaLista = [...pagamentosAdicionados, novoPagamento];
         setPagamentosAdicionados(novaLista);
         setMsgFinalizar('');
+        setParcelasCredito(1);
+        setTaxaManualDigitos('');
+        setEditandoTaxa(false);
 
         const novoFaltante = calcularFaltante(novaLista);
         setValorPagamentoAtual(novoFaltante > 0 ? numeroParaDigitos(novoFaltante) : '');
     }
+
+    // Resumo de taxa/líquido dos pagamentos já adicionados.
+    const resumoTaxas = calcularTaxasPagamentos(taxasPagamento, pagamentosAdicionados);
+
+    const montarPagamentoPayload = (p) => ({
+        metodo: p.metodo,
+        valor: p.valor,
+        ...(typeof p.valorTaxaManual === 'number' ? { valorTaxaManual: p.valorTaxaManual } : {}),
+        ...(p.metodo === 'credito'
+            ? {
+                qtdParcelas: p.qtdParcelas || 1,
+                tipoCredito: p.tipoCredito || ((p.qtdParcelas || 1) === 1 ? 'avista' : 'parcelado'),
+                descricaoMetodo: p.descricaoMetodo
+            }
+            : {})
+    });
 
     const removerPagamento = (index) => {
         const novaLista = pagamentosAdicionados.filter((_, i) => i !== index);
@@ -465,6 +540,12 @@ const PDV = () => {
 
         if (pagamentosAdicionados.length === 0 || calcularFaltante() > 0.001) {
             setMsgFinalizar('Adicione pagamentos até cobrir o valor total.');
+            return;
+        }
+
+        // Revalida contra as taxas carregadas antes de mandar pro backend.
+        if (resumoTaxas.pendentes.length > 0) {
+            setMsgFinalizar(mensagemTaxasPendentes(resumoTaxas.pendentes));
             return;
         }
 
@@ -492,7 +573,7 @@ const PDV = () => {
         // o front só informa QUAIS produtoIds entram (ex: itens sem estoque ficam de fora).
         const requisicao = emConversaoOrcamento
             ? api.post(`orcamento/${obterIdRegistro(orcamentoAtual)}/finalizar`, {
-                pagamento: pagamentosAdicionados.map((p) => ({ metodo: p.metodo, valor: p.valor })),
+                pagamento: pagamentosAdicionados.map(montarPagamentoPayload),
                 produtoIdsIncluidos: itensSelecionados.map((item) => item.produtoId),
                 ...(clienteId ? { clienteId } : {})
             }, {
@@ -503,7 +584,7 @@ const PDV = () => {
                 vendedorNome: vendedorSelecionado?.nome,
                 tipoVenda: 'pdv',
                 status: 'finalizado',
-                pagamento: pagamentosAdicionados.map((p) => ({ metodo: p.metodo, valor: p.valor })),
+                pagamento: pagamentosAdicionados.map(montarPagamentoPayload),
                 produtos: produtosPayload,
                 valor: total,
                 ...(clienteId ? { clienteId } : {})
@@ -520,6 +601,9 @@ const PDV = () => {
             });
             setMostrarModalFinalizar(false);
             setMetodoAtual('dinheiro');
+            setParcelasCredito(1);
+            setTaxaManualDigitos('');
+            setEditandoTaxa(false);
             setPagamentosAdicionados([]);
             limparBag();
             setClienteSelecionado(null);
@@ -995,8 +1079,15 @@ const PDV = () => {
                                             <div key={index} className="finalizar-pagamento-linha">
                                                 <span className="finalizar-pagamento-metodo">
                                                     {({ dinheiro: 'Dinheiro', pix: 'Pix', debito: 'Débito', credito: 'Crédito', faturado: 'Faturado' })[p.metodo]}
+                                                    {p.metodo === 'credito' && ` ${p.qtdParcelas || 1}x`}
                                                 </span>
                                                 <span className="finalizar-pagamento-valor">R$ {p.valor.toFixed(2).replace(".", ",")}</span>
+                                                {p.valorTaxa > 0 && (
+                                                    <span className="finalizar-pagamento-taxa">
+                                                        Taxa {Number(p.percentualTaxa || 0).toFixed(2).replace(".", ",")}%: -R$ {Number(p.valorTaxa).toFixed(2).replace(".", ",")}
+                                                        {p.taxaManual && ' (manual)'}
+                                                    </span>
+                                                )}
                                                 {p.troco > 0 && (
                                                     <span className="finalizar-pagamento-troco">Troco: R$ {p.troco.toFixed(2).replace(".", ",")}</span>
                                                 )}
@@ -1011,6 +1102,13 @@ const PDV = () => {
                                                 </button>
                                             </div>
                                         ))}
+
+                                        {resumoTaxas.valorTaxaTotal > 0 && (
+                                            <div className="finalizar-resumo-liquido">
+                                                <span>Taxas da maquininha: <strong>-R$ {resumoTaxas.valorTaxaTotal.toFixed(2).replace(".", ",")}</strong></span>
+                                                <span>Entra no banco: <strong>R$ {resumoTaxas.valorLiquido.toFixed(2).replace(".", ",")}</strong></span>
+                                            </div>
+                                        )}
                                     </div>
                                 )}
 
@@ -1040,6 +1138,98 @@ const PDV = () => {
                                                 );
                                             })}
                                         </div>
+
+                                        {metodoAtual === 'credito' && (
+                                            <div className="finalizar-parcelas">
+                                                <span className="finalizar-label">Parcelamento</span>
+                                                <select
+                                                    className="finalizar-parcelas-select"
+                                                    value={parcelasCredito}
+                                                    onChange={(e) => setParcelasCredito(Number(e.target.value))}
+                                                >
+                                                    {Array.from({ length: 12 }, (_, i) => i + 1).map((parcela) => (
+                                                        <option key={parcela} value={parcela}>
+                                                            {parcela === 1 ? 'À vista (1x)' : `${parcela}x`}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                        )}
+
+                                        {(() => {
+                                            const valorPrevia = digitosParaNumero(valorPagamentoAtual);
+                                            const previa = calcularTaxaPagamento(taxasPagamento, {
+                                                metodo: metodoAtual,
+                                                valor: valorPrevia,
+                                                qtdParcelas: metodoAtual === 'credito' ? parcelasCredito : 1,
+                                                valorTaxaManual: editandoTaxa && taxaManualDigitos !== ''
+                                                    ? digitosParaNumero(taxaManualDigitos)
+                                                    : undefined
+                                            });
+
+                                            const podeEditarTaxa = metodoAtual === 'debito' || metodoAtual === 'credito';
+
+                                            return (
+                                                <>
+                                                    {previa.exigeTaxa && !previa.taxaCadastrada && (
+                                                        <div className="finalizar-taxa-alerta">
+                                                            {mensagemTaxaPendente(metodoAtual, previa.qtdParcelas)}
+                                                        </div>
+                                                    )}
+
+                                                    {previa.valorTaxa > 0 && (
+                                                        <div className="finalizar-taxa-previa">
+                                                            Taxa {previa.percentual.toFixed(2).replace(".", ",")}%: -R$ {previa.valorTaxa.toFixed(2).replace(".", ",")}
+                                                            {" · "}Líquido: R$ {previa.valorLiquido.toFixed(2).replace(".", ",")}
+                                                            {!previa.taxaManual && previa.prazoDias > 0 && ` · recebe em D+${previa.prazoDias}`}
+                                                            {previa.taxaManual && " · taxa informada na mão"}
+                                                        </div>
+                                                    )}
+
+                                                    {podeEditarTaxa && !editandoTaxa && (
+                                                        <button
+                                                            type="button"
+                                                            className="finalizar-taxa-editar"
+                                                            onClick={() => {
+                                                                setEditandoTaxa(true);
+                                                                setTaxaManualDigitos(previa.valorTaxa > 0 ? numeroParaDigitos(previa.valorTaxa) : '');
+                                                            }}
+                                                        >
+                                                            Outra maquininha? Informar taxa
+                                                        </button>
+                                                    )}
+
+                                                    {podeEditarTaxa && editandoTaxa && (
+                                                        <div className="finalizar-taxa-editor">
+                                                            <span className="finalizar-label">Taxa desta venda</span>
+                                                            <div className="finalizar-taxa-editor-linha">
+                                                                <div className="finalizar-valor-input-wrapper">
+                                                                    <span className="finalizar-valor-prefixo">R$</span>
+                                                                    <input
+                                                                        type="text"
+                                                                        inputMode="numeric"
+                                                                        value={formatarMoeda(taxaManualDigitos)}
+                                                                        onChange={(e) => setTaxaManualDigitos(e.target.value.replace(/\D/g, ''))}
+                                                                        className="finalizar-valor-input"
+                                                                        placeholder="0,00"
+                                                                    />
+                                                                </div>
+                                                                <button
+                                                                    type="button"
+                                                                    className="finalizar-taxa-cancelar"
+                                                                    onClick={() => {
+                                                                        setEditandoTaxa(false);
+                                                                        setTaxaManualDigitos('');
+                                                                    }}
+                                                                >
+                                                                    Usar taxa cadastrada
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </>
+                                            );
+                                        })()}
 
                                         <div className="finalizar-valor-linha">
                                             <div className="finalizar-valor-input-wrapper">
