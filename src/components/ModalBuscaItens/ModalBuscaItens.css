@@ -424,3 +424,168 @@
         flex: 1;
     }
 }
+
+/* Botão de informações por linha */
+.bi-col-info {
+    width: 44px;
+    text-align: center;
+}
+
+.bi-info-btn {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    border: 1px solid #4d4d4d;
+    background: #2b2b2b;
+    color: #a8a8a8;
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-size: 0.85rem;
+    font-weight: 700;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: border-color 0.15s, color 0.15s;
+}
+
+.bi-info-btn:hover {
+    border-color: #4CAF50;
+    color: #4CAF50;
+}
+
+/* Detalhe do item */
+.bi-detalhe-overlay {
+    position: fixed;
+    inset: 0;
+    background-color: rgba(0, 0, 0, 0.55);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1100;
+    animation: fadeInOverlay 0.15s ease-out;
+}
+
+.bi-detalhe-modal {
+    background-color: #232323;
+    border: 1px solid #3d3d3d;
+    border-radius: 12px;
+    width: 820px;
+    max-width: 92vw;
+    max-height: 85vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
+    animation: popIn 0.15s ease-out;
+}
+
+.bi-detalhe-corpo {
+    display: flex;
+    gap: 22px;
+    padding: 20px 22px;
+    overflow-y: auto;
+}
+
+.bi-detalhe-imagens {
+    flex: 0 0 300px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.bi-detalhe-imagem-principal {
+    width: 300px;
+    height: 300px;
+    object-fit: contain;
+    background-color: #fff;
+    border: 1px solid #3d3d3d;
+    border-radius: 10px;
+}
+
+.bi-detalhe-miniaturas {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.bi-detalhe-miniatura {
+    width: 58px;
+    height: 58px;
+    object-fit: cover;
+    background-color: #fff;
+    border: 2px solid #3d3d3d;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.bi-detalhe-miniatura.bi-ativa,
+.bi-detalhe-miniatura:hover {
+    border-color: #4CAF50;
+}
+
+.bi-detalhe-infos {
+    flex: 1;
+    min-width: 0;
+}
+
+.bi-detalhe-lista {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 6px 16px;
+    margin: 0 0 16px;
+}
+
+.bi-detalhe-lista dt {
+    color: #a8a8a8;
+    font-size: 0.85rem;
+}
+
+.bi-detalhe-lista dd {
+    color: #fff;
+    margin: 0;
+    font-size: 0.9rem;
+    word-break: break-word;
+}
+
+.bi-detalhe-secao {
+    border-top: 1px solid #3d3d3d;
+    padding-top: 12px;
+    margin-top: 12px;
+}
+
+.bi-detalhe-secao h4 {
+    color: #4CAF50;
+    margin: 0 0 6px;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.bi-detalhe-secao p {
+    color: #e0e0e0;
+    margin: 0;
+    font-size: 0.9rem;
+    line-height: 1.45;
+    white-space: pre-line;
+    word-break: break-word;
+}
+
+.bi-detalhe-vazio {
+    color: #a8a8a8;
+    font-size: 0.85rem;
+    font-style: italic;
+}
+
+@media (max-width: 700px) {
+    .bi-detalhe-corpo {
+        flex-direction: column;
+    }
+
+    .bi-detalhe-imagens {
+        flex-basis: auto;
+    }
+
+    .bi-detalhe-imagem-principal {
+        width: 100%;
+    }
+}

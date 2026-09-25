@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import './ModalBuscaItens.css';
 import api from '../../connection/connection'
+import DetalheItem from './DetalheItem';
 
 const obterId = (item) => item._id?.$oid || item._id;
 
@@ -10,18 +11,23 @@ const BuscarItem = ({ onSelecionarItem, onClose, bag }) => {
     const [buscando, setBuscando] = useState(false);
     const [selecionados, setSelecionados] = useState({}); // { [id]: { item, quantidade } }
     const [mostrarAjuda, setMostrarAjuda] = useState(false);
+    const [itemDetalhe, setItemDetalhe] = useState(null);
 
     const time = useRef(null);
 
     useEffect(() => {
         const handleKeyDown = (e) => {
             if (e.key === "Escape") {
+                if (itemDetalhe) {
+                    setItemDetalhe(null);
+                    return;
+                }
                 onClose();
             }
         };
         window.addEventListener("keydown", handleKeyDown);
         return () => window.removeEventListener("keydown", handleKeyDown);
-    }, [onClose]);
+    }, [onClose, itemDetalhe]);
 
     const buscarItem = (valor) => {
         setTermoBusca(valor)
@@ -166,6 +172,7 @@ const BuscarItem = ({ onSelecionarItem, onClose, bag }) => {
                                     <th>Estoque</th>
                                     <th>Preço</th>
                                     <th className="bi-col-qtd">Qtd</th>
+                                    <th className="bi-col-info"></th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -213,6 +220,17 @@ const BuscarItem = ({ onSelecionarItem, onClose, bag }) => {
                                                     className="bi-qtd-input"
                                                 />
                                             </td>
+                                            <td className="bi-col-info">
+                                                <button
+                                                    type="button"
+                                                    className="bi-info-btn"
+                                                    title="Ver informações do item"
+                                                    aria-label="Ver informações do item"
+                                                    onClick={(e) => { e.stopPropagation(); setItemDetalhe(item); }}
+                                                >
+                                                    i
+                                                </button>
+                                            </td>
                                         </tr>
                                     );
                                 })}
@@ -250,6 +268,10 @@ const BuscarItem = ({ onSelecionarItem, onClose, bag }) => {
                     </div>
                 </div>
             </div>
+
+            {itemDetalhe && (
+                <DetalheItem item={itemDetalhe} onClose={() => setItemDetalhe(null)} />
+            )}
         </div>
     );
 };
