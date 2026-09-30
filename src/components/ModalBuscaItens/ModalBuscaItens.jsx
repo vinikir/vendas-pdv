@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import './ModalBuscaItens.css';
 import api from '../../connection/connection'
 import DetalheItem from './DetalheItem';
+import ModalDemanda from '../ModalDemanda/ModalDemanda';
 
 const obterId = (item) => item._id?.$oid || item._id;
 
@@ -12,12 +13,15 @@ const BuscarItem = ({ onSelecionarItem, onClose, bag }) => {
     const [selecionados, setSelecionados] = useState({}); // { [id]: { item, quantidade } }
     const [mostrarAjuda, setMostrarAjuda] = useState(false);
     const [itemDetalhe, setItemDetalhe] = useState(null);
+    const [demanda, setDemanda] = useState(null);
+    const [avisoDemanda, setAvisoDemanda] = useState('');
 
     const time = useRef(null);
 
     useEffect(() => {
         const handleKeyDown = (e) => {
             if (e.key === "Escape") {
+                if (demanda) return;
                 if (itemDetalhe) {
                     setItemDetalhe(null);
                     return;
@@ -27,7 +31,7 @@ const BuscarItem = ({ onSelecionarItem, onClose, bag }) => {
         };
         window.addEventListener("keydown", handleKeyDown);
         return () => window.removeEventListener("keydown", handleKeyDown);
-    }, [onClose, itemDetalhe]);
+    }, [onClose, itemDetalhe, demanda]);
 
     const buscarItem = (valor) => {
         setTermoBusca(valor)
@@ -205,14 +209,25 @@ const BuscarItem = ({ onSelecionarItem, onClose, bag }) => {
                                             </td>
                                             <td>{item.marca || '-'}</td>
                                             <td className={semEstoque ? 'bi-sem-estoque' : 'bi-em-estoque'}>
-                                                {semEstoque ? 'Sem estoque' : item.estoque}
+                                                {semEstoque ? (
+                                                    <>
+                                                        Sem estoque
+                                                        <button
+                                                            type="button"
+                                                            className="bi-anotar-btn"
+                                                            title="O cliente procurou este item: anotar"
+                                                            onClick={(e) => { e.stopPropagation(); setDemanda({ produto: item }); }}
+                                                        >
+                                                            anotar
+                                                        </button>
+                                                    </>
+                                                ) : item.estoque}
                                             </td>
                                             <td className="bi-preco">R$ {item.valorVenda.toFixed(2)}</td>
                                             <td className="bi-col-qtd">
                                                 <input
-                                                    type="number"
-                                                    min="1"
-                                                    max={item.estoque || 1}
+                                                    type="text"
+                                                    inputMode="numeric"
                                                     disabled={!selecionado}
                                                     value={selecionados[id]?.quantidade ?? 1}
                                                     onClick={(e) => e.stopPropagation()}
@@ -239,6 +254,11 @@ const BuscarItem = ({ onSelecionarItem, onClose, bag }) => {
                     ) : (
                         <div className="bi-sem-resultados">
                             {buscando ? 'Buscando...' : termoBusca ? 'Nenhum item encontrado' : 'Digite para buscar itens'}
+                            {!buscando && termoBusca.trim() !== '' && (
+                                <button type="button" className="bi-anotar-destaque" onClick={() => setDemanda({ descricao: termoBusca.trim() })}>
+                                    Procuraram e não tinha? Anotar
+                                </button>
+                            )}
                         </div>
                     )}
                 </div>
@@ -269,6 +289,19 @@ const BuscarItem = ({ onSelecionarItem, onClose, bag }) => {
                 </div>
             </div>
 
+            {avisoDemanda && <div className="bi-aviso-demanda" role="status">{avisoDemanda}</div>}
+            {demanda && (
+                <ModalDemanda
+                    descricaoInicial={demanda.descricao || ''}
+                    produto={demanda.produto || null}
+                    onClose={() => setDemanda(null)}
+                    onSalvo={() => {
+                        setDemanda(null);
+                        setAvisoDemanda('Anotado na lista de pedidos sem estoque.');
+                        setTimeout(() => setAvisoDemanda(''), 3500);
+                    }}
+                />
+            )}
             {itemDetalhe && (
                 <DetalheItem item={itemDetalhe} onClose={() => setItemDetalhe(null)} />
             )}

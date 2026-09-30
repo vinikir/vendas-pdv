@@ -1,0 +1,116 @@
+.dem-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1200;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+}
+
+.dem-modal {
+    width: min(520px, 100%);
+    background: #2a2a2a;
+    border: 1px solid #f0660a;
+    border-radius: 12px;
+    padding: 18px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    color: #f2f2f2;
+}
+
+.dem-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.dem-header h3 {
+    margin: 0;
+    color: #f0660a;
+}
+
+.dem-fechar {
+    background: none;
+    border: none;
+    color: #aaa;
+    font-size: 24px;
+    cursor: pointer;
+}
+
+.dem-campo {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    flex: 1;
+    font-size: 12px;
+    color: #a8a8a8;
+}
+
+.dem-campo input {
+    background: #333;
+    border: 1px solid #444;
+    border-radius: 6px;
+    padding: 10px 12px;
+    color: #fff;
+    font-size: 15px;
+}
+
+.dem-campo input:focus {
+    outline: none;
+    border-color: #f0660a;
+}
+
+.dem-curto {
+    flex: 0 0 80px;
+}
+
+.dem-linha {
+    display: flex;
+    gap: 10px;
+}
+
+.dem-secao {
+    margin: 4px 0 0;
+    font-size: 13px;
+    font-weight: 700;
+    color: #f0660a;
+}
+
+.dem-erro {
+    background: rgba(255, 107, 107, 0.12);
+    border: 1px solid rgba(255, 107, 107, 0.4);
+    color: #ff6b6b;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 13px;
+}
+
+.dem-botoes {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 4px;
+}
+
+.dem-btn,
+.dem-btn-secundario {
+    padding: 10px 18px;
+    border-radius: 6px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.dem-btn {
+    background: #f0660a;
+    border: 1px solid #f0660a;
+    color: #fff;
+}
+
+.dem-btn-secundario {
+    background: transparent;
+    border: 1px solid #555;
+    color: #ccc;
+}
