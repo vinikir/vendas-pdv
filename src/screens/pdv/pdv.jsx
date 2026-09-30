@@ -333,14 +333,15 @@ const PDV = () => {
         }
     }
 
-    const solicitarAutenticacaoAdmin = ({ descricao, onSucesso }) => {
-        setAutenticacaoPendente({ descricao, onSucesso });
+    const solicitarAutenticacaoAdmin = ({ descricao, permissao, onSucesso }) => {
+        setAutenticacaoPendente({ descricao, permissao, onSucesso });
         setMostrarModalAutenticacao(true);
     }
 
     const abrirModalDesconto = () => {
         solicitarAutenticacaoAdmin({
             descricao: 'Autorização de administrador para alterar o desconto geral.',
+            permissao: ['vendas', 'autorizar_desconto'],
             onSucesso: (admin) => {
                 setAutorizacaoDesconto(admin);
                 setMostrarModalDesconto(true);
@@ -364,6 +365,7 @@ const PDV = () => {
     const abrirAuditoria = () => {
         solicitarAutenticacaoAdmin({
             descricao: 'Autorização de administrador para visualizar a auditoria.',
+            permissao: ['auditoria', 'visualizar'],
             onSucesso: (admin) => {
                 setAuditoriaToken(admin.token);
                 setMostrarModalAuditoria(true);
@@ -377,6 +379,7 @@ const PDV = () => {
 
         solicitarAutenticacaoAdmin({
             descricao: `Autorização de administrador para cancelar a Venda Nº ${venda.vendaId}.`,
+            permissao: ['vendas', 'cancelar'],
             onSucesso: (admin) => {
                 setCancelandoVenda(true);
                 api.post(`venda/${obterIdRegistro(venda)}/cancelar`, {}, {
@@ -1023,7 +1026,8 @@ const PDV = () => {
                         titulo="Autorização necessária"
                         descricao={autenticacaoPendente.descricao}
                         cargosPermitidos={['administrador']}
-                        mensagemSemPermissao="Apenas administradores podem autorizar esta ação."
+                        permissao={autenticacaoPendente.permissao}
+                        mensagemSemPermissao="Este usuário não tem permissão para autorizar esta ação."
                         onSelecionar={(admin) => {
                             setMostrarModalAutenticacao(false);
                             const pendente = autenticacaoPendente;

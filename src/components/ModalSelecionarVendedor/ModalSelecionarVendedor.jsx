@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import './ModalSelecionarVendedor.css';
 import api from '../../connection/connection';
+import { podeNoPdv } from '../../utils/permissoes';
 
 const CARGOS_PERMITIDOS_PADRAO = ['vendedor', 'administrador'];
 
@@ -10,6 +11,7 @@ const ModalSelecionarVendedor = ({
     titulo = 'Selecionar Vendedor',
     descricao = 'Informe o login e a senha de quem está realizando esta venda.',
     cargosPermitidos = CARGOS_PERMITIDOS_PADRAO,
+    permissao = ['vendas', 'criar'],
     mensagemSemPermissao = 'Este usuário não tem permissão para esta ação.'
 }) => {
     const [login, setLogin] = useState('');
@@ -41,7 +43,7 @@ const ModalSelecionarVendedor = ({
             .then((res) => {
                 const dados = res.data?.valor;
 
-                if (!cargosPermitidos.includes(dados?.cargo)) {
+                if (!podeNoPdv(dados, permissao, cargosPermitidos)) {
                     setErro(mensagemSemPermissao);
                     return;
                 }
