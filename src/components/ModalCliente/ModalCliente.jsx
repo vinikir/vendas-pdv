@@ -3,7 +3,9 @@ import './ModalCliente.css';
 import api from '../../connection/connection';
 
 const ModalCliente = ({ onSelecionarCliente, onCadastrarCliente, onClose }) => {
-    const [modo, setModo] = useState('busca'); // 'busca' ou 'cadastro'
+    const [modo, setModo] = useState('busca'); // 'busca', 'rapido' ou 'cadastro'
+    const [rapido, setRapido] = useState({ nome: '', telefone: '' });
+    const [salvandoRapido, setSalvandoRapido] = useState(false);
     const [termoBusca, setTermoBusca] = useState('');
     const [resultados, setResultados] = useState([]);
     const [clienteSelecionado, setClienteSelecionado] = useState(null);
@@ -107,7 +109,8 @@ const ModalCliente = ({ onSelecionarCliente, onCadastrarCliente, onClose }) => {
             email:novoCliente.email
         }).then((res) => {
 
-            onSelecionarCliente(res.data.valor);
+            // POST /user devolve { usuario, enderecos }.
+            onSelecionarCliente(res.data.valor?.usuario || res.data.valor);
             onClose();
 
         }).catch((err) => {
@@ -117,11 +120,52 @@ const ModalCliente = ({ onSelecionarCliente, onCadastrarCliente, onClose }) => {
 
     };
 
+    const abrirRapido = () => {
+        // Aproveita o que foi digitado na busca: nome vira nome, número vira WhatsApp.
+        const termo = termoBusca.trim();
+        const soNumeros = termo.replace(/\D/g, '');
+        const ehTelefone = termo !== '' && soNumeros.length === termo.replace(/[\s()-]/g, '').length;
+        setRapido({
+            nome: ehTelefone ? '' : termo,
+            telefone: ehTelefone ? mascararTelefone(soNumeros.slice(0, 11)) : ''
+        });
+        setMsg(undefined);
+        setModo('rapido');
+    };
+
+    const salvarRapido = (e) => {
+        e.preventDefault();
+        const telefone = rapido.telefone.replace(/\D/g, '');
+        if (rapido.nome.trim().length < 2) {
+            setMsg('Informe o nome do cliente.');
+            return;
+        }
+        if (telefone.length < 10) {
+            setMsg('Informe o WhatsApp com DDD.');
+            return;
+        }
+        setSalvandoRapido(true);
+        api.post('clientes/rapido', { nome: rapido.nome.trim(), telefone })
+            .then((res) => {
+                const cliente = res.data?.valor?.cliente;
+                if (!cliente) {
+                    setMsg(typeof res.data?.valor === 'string' ? res.data.valor : 'Não foi possível salvar o cliente.');
+                    return;
+                }
+                onSelecionarCliente(cliente);
+                onClose();
+            })
+            .catch((err) => setMsg(err.response?.data?.valor || 'Não foi possível salvar o cliente.'))
+            .finally(() => setSalvandoRapido(false));
+    };
+
+    const titulo = { busca: 'Buscar Cliente', rapido: 'Cliente rápido', cadastro: 'Cadastro completo' }[modo];
+
     return (
         <div className="cli-overlay" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
             <div className="cli-modal">
                 <div className="cli-header">
-                    <h3>{modo === 'busca' ? 'Buscar Cliente' : 'Cadastrar Cliente'}</h3>
+                    <h3>{titulo}</h3>
                     <button onClick={onClose} className="cli-close-btn">
                         &times;
                     </button>
@@ -140,7 +184,7 @@ const ModalCliente = ({ onSelecionarCliente, onCadastrarCliente, onClose }) => {
                                 type="text"
                                 value={termoBusca}
                                 onChange={(e) => buscarClientes(e.target.value)}
-                                placeholder="Digite nome ou CPF..."
+                                placeholder="Digite nome, CPF ou WhatsApp..."
                                 autoFocus
                                 className="cli-busca-input"
                             />
@@ -152,7 +196,7 @@ const ModalCliente = ({ onSelecionarCliente, onCadastrarCliente, onClose }) => {
                                     <thead>
                                         <tr>
                                             <th>Nome</th>
-                                            <th>CPF</th>
+                                            <th>CPF/CNPJ</th>
                                             <th>Telefone</th>
                                         </tr>
                                     </thead>
@@ -164,8 +208,8 @@ const ModalCliente = ({ onSelecionarCliente, onCadastrarCliente, onClose }) => {
                                                 className="cli-item-row"
                                             >
                                                 <td>{cliente.nome}</td>
-                                                <td>{cliente.cpfCnpj}</td>
-                                                <td>{cliente.telefone}</td>
+                                                <td>{cliente.cpfCnpj || <span className="cli-tag-rapido">Cadastro rápido</span>}</td>
+                                                <td>{cliente.telefone ? mascararTelefone(String(cliente.telefone)) : '—'}</td>
                                             </tr>
                                         ))}
                                     </tbody>
@@ -177,15 +221,60 @@ const ModalCliente = ({ onSelecionarCliente, onCadastrarCliente, onClose }) => {
                             )}
                         </div>
 
-                        <div className="cli-footer">
+                        <div className="cli-footer cli-footer-duplo">
                             <button
-                                onClick={() => setModo('cadastro')}
+                                onClick={() => { setMsg(undefined); setModo('cadastro'); }}
+                                className="cli-btn-voltar"
+                            >
+                                Cadastro completo (com CPF)
+                            </button>
+                            <button
+                                onClick={abrirRapido}
                                 className="cli-btn-novo"
                             >
-                                Cadastrar Novo Cliente
+                                Cliente rápido (nome + WhatsApp)
                             </button>
                         </div>
                     </div>
+                ) : modo === 'rapido' ? (
+                    <form className="cli-cadastro-container" onSubmit={salvarRapido}>
+                        <p className="cli-rapido-descricao">
+                            Só nome e WhatsApp. Use para fiado e para saber quem comprou, sem pedir CPF.
+                        </p>
+                        {msg && <div className="cli-mensagem-alerta">{msg}</div>}
+
+                        <div className="cli-form-group">
+                            <label>Nome*</label>
+                            <input
+                                type="text"
+                                value={rapido.nome}
+                                onChange={(e) => setRapido((r) => ({ ...r, nome: e.target.value }))}
+                                placeholder="Como o cliente é conhecido"
+                                autoFocus={rapido.nome === ''}
+                            />
+                        </div>
+
+                        <div className="cli-form-group">
+                            <label>WhatsApp*</label>
+                            <input
+                                type="text"
+                                inputMode="tel"
+                                value={rapido.telefone}
+                                onChange={(e) => setRapido((r) => ({ ...r, telefone: mascararTelefone(e.target.value.replace(/\D/g, '').slice(0, 11)) }))}
+                                placeholder="(11) 98765-4321"
+                                autoFocus={rapido.nome !== ''}
+                            />
+                        </div>
+
+                        <div className="cli-form-buttons">
+                            <button type="button" onClick={() => { setMsg(undefined); setModo('busca'); }} className="cli-btn-voltar">
+                                Voltar para Busca
+                            </button>
+                            <button type="submit" className="cli-btn-cadastrar" disabled={salvandoRapido}>
+                                {salvandoRapido ? 'Salvando...' : 'Salvar e usar na venda'}
+                            </button>
+                        </div>
+                    </form>
                 ) : (
                     <div className="cli-cadastro-container">
                         {msg && <div className="cli-mensagem-alerta">{msg}</div>}
