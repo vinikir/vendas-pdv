@@ -69,6 +69,8 @@ const PDV = () => {
     const [autenticacaoPendente, setAutenticacaoPendente] = useState(null); // { descricao, onSucesso }
     const [autorizacaoDesconto, setAutorizacaoDesconto] = useState(null);
     const [cancelandoVenda, setCancelandoVenda] = useState(false);
+    const [motivoCancelamento, setMotivoCancelamento] = useState(null); // null = modal fechado
+    const [erroMotivoCancelamento, setErroMotivoCancelamento] = useState('');
     const [mostrarModalAuditoria, setMostrarModalAuditoria] = useState(false);
     const [auditoriaToken, setAuditoriaToken] = useState(null);
     const horaAtualRef = useRef(moment());
@@ -173,6 +175,7 @@ const PDV = () => {
 
     const fecharVisualizacao = () => {
         setModoVisualizacao(null);
+        setMotivoCancelamento(null);
         setItensSelecionados([]);
         setClienteSelecionado(null);
         setDadosConversaoPendente(null);
@@ -375,14 +378,28 @@ const PDV = () => {
 
     const cancelarVendaAtual = () => {
         if (!modoVisualizacao || modoVisualizacao.tipo !== 'venda') return;
+        setErroMotivoCancelamento('');
+        setMotivoCancelamento('');
+    }
+
+    // O motivo vem antes da senha do administrador; ele autoriza já sabendo o porquê.
+    const confirmarMotivoCancelamento = (e) => {
+        e.preventDefault();
+        const motivo = (motivoCancelamento || '').trim();
+        if (!motivo) {
+            setErroMotivoCancelamento('Informe o motivo do cancelamento.');
+            return;
+        }
+        setMotivoCancelamento(null);
+        if (!modoVisualizacao || modoVisualizacao.tipo !== 'venda') return;
         const venda = modoVisualizacao.dados;
 
         solicitarAutenticacaoAdmin({
-            descricao: `Autorização de administrador para cancelar a Venda Nº ${venda.vendaId}.`,
+            descricao: `Autorização de administrador para cancelar a Venda Nº ${venda.vendaId}. Motivo: ${motivo}`,
             permissao: ['vendas', 'cancelar'],
             onSucesso: (admin) => {
                 setCancelandoVenda(true);
-                api.post(`venda/${obterIdRegistro(venda)}/cancelar`, {}, {
+                api.post(`venda/${obterIdRegistro(venda)}/cancelar`, { motivo }, {
                     headers: { Authorization: `Bearer ${admin.token}` }
                 }).then(() => {
                     setMsgModal('Venda cancelada com sucesso.');
@@ -1018,6 +1035,40 @@ const PDV = () => {
                         onSelecionar={vendedorSelecionadoConfirmado}
                         onClose={() => { setMostrarModalVendedor(false); setItensPendentesAposVendedor(null); }}
                     />
+                )
+            }
+            {
+                motivoCancelamento !== null && (
+                    <div className="vnd-overlay" onClick={(e) => { if (e.target === e.currentTarget) setMotivoCancelamento(null); }}>
+                        <div className="vnd-modal">
+                            <div className="vnd-header">
+                                <h3>Cancelar Venda Nº {modoVisualizacao?.dados?.vendaId}</h3>
+                                <button onClick={() => setMotivoCancelamento(null)} className="vnd-close-btn">&times;</button>
+                            </div>
+                            <form className="vnd-form" onSubmit={confirmarMotivoCancelamento}>
+                                <div className="vnd-form-group">
+                                    <label htmlFor="motivo-cancelamento">Motivo do cancelamento</label>
+                                    <textarea
+                                        id="motivo-cancelamento"
+                                        rows={3}
+                                        maxLength={500}
+                                        value={motivoCancelamento}
+                                        onChange={(e) => setMotivoCancelamento(e.target.value)}
+                                        autoFocus
+                                    />
+                                </div>
+                                {erroMotivoCancelamento && <div className="vnd-erro">{erroMotivoCancelamento}</div>}
+                                <div className="vnd-footer">
+                                    <button type="button" className="vnd-btn-cancelar" onClick={() => setMotivoCancelamento(null)}>
+                                        Voltar
+                                    </button>
+                                    <button type="submit" className="vnd-btn-confirmar">
+                                        Continuar
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
                 )
             }
             {
