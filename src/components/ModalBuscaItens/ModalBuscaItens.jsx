@@ -53,8 +53,13 @@ const BuscarItem = ({ onSelecionarItem, onClose, bag }) => {
         }, 500)
     }
 
+    // Serviço (mão de obra) não tem estoque de verdade: no back o campo só conta
+    // quantas vezes foi vendido. Então não bloqueia nem limita a quantidade.
+    const ehServico = (item) => item?.tipo === 'servico';
+    const semEstoqueItem = (item) => !ehServico(item) && (!item.estoque || item.estoque <= 0);
+
     const toggleSelecionado = (item) => {
-        if (!item.estoque || item.estoque <= 0) return;
+        if (semEstoqueItem(item)) return;
 
         const id = obterId(item);
         setSelecionados((atual) => {
@@ -71,10 +76,12 @@ const BuscarItem = ({ onSelecionarItem, onClose, bag }) => {
     const alterarQuantidade = (item, valorInput) => {
         const id = obterId(item);
         const numeros = valorInput.replace(/[^\d]/g, '');
-        let qtd = parseInt(numeros, 10);
+        // Campo vazio é permitido enquanto digita (senão o "1" fixo vira "12");
+        // volta para 1 no blur.
+        let qtd = numeros === '' ? '' : parseInt(numeros, 10);
 
-        if (isNaN(qtd) || qtd < 1) qtd = 1;
-        if (item.estoque && qtd > item.estoque) qtd = item.estoque;
+        if (qtd !== '' && qtd < 1) qtd = 1;
+        if (qtd !== '' && !ehServico(item) && item.estoque && qtd > item.estoque) qtd = item.estoque;
 
         setSelecionados((atual) => {
             if (!atual[id]) return atual;
@@ -82,14 +89,23 @@ const BuscarItem = ({ onSelecionarItem, onClose, bag }) => {
         });
     };
 
+    const normalizarQuantidade = (item) => {
+        const id = obterId(item);
+        setSelecionados((atual) => {
+            if (!atual[id] || atual[id].quantidade !== '') return atual;
+            return { ...atual, [id]: { item, quantidade: 1 } };
+        });
+    };
+
     const listaSelecionados = useMemo(() => Object.values(selecionados), [selecionados]);
     const totalSelecionado = useMemo(
-        () => listaSelecionados.reduce((total, { item, quantidade }) => total + item.valorVenda * quantidade, 0),
+        () => listaSelecionados.reduce((total, { item, quantidade }) => total + item.valorVenda * (Number(quantidade) || 1), 0),
         [listaSelecionados]
     );
 
     const adicionarSelecionados = () => {
-        listaSelecionados.forEach(({ item, quantidade }) => {
+        listaSelecionados.forEach(({ item, quantidade: quantidadeDigitada }) => {
+            const quantidade = Number(quantidadeDigitada) || 1;
             onSelecionarItem({
                 desconto: 0,
                 produtoId: obterId(item),
@@ -100,7 +116,9 @@ const BuscarItem = ({ onSelecionarItem, onClose, bag }) => {
                 valorDoDesconto: 0,
                 valorUnitario: item.valorVenda,
                 marca: item.marca,
-                estoque: item.estoque
+                estoque: item.estoque,
+                descontoMaximo: Number(item.descontoMaximo || 0),
+                ehServico: ehServico(item)
             });
         });
         onClose();
@@ -183,7 +201,7 @@ const BuscarItem = ({ onSelecionarItem, onClose, bag }) => {
                                 {resultados.map((item) => {
                                     const id = obterId(item);
                                     const selecionado = !!selecionados[id];
-                                    const semEstoque = !item.estoque || item.estoque <= 0;
+                                    const semEstoque = semEstoqueItem(item);
 
                                     return (
                                         <tr
@@ -221,7 +239,7 @@ const BuscarItem = ({ onSelecionarItem, onClose, bag }) => {
                                                             anotar
                                                         </button>
                                                     </>
-                                                ) : item.estoque}
+                                                ) : (ehServico(item) ? '-' : item.estoque)}
                                             </td>
                                             <td className="bi-preco">R$ {item.valorVenda.toFixed(2)}</td>
                                             <td className="bi-col-qtd">
@@ -231,6 +249,8 @@ const BuscarItem = ({ onSelecionarItem, onClose, bag }) => {
                                                     disabled={!selecionado}
                                                     value={selecionados[id]?.quantidade ?? 1}
                                                     onClick={(e) => e.stopPropagation()}
+                                                    onFocus={(e) => e.target.select()}
+                                                    onBlur={() => normalizarQuantidade(item)}
                                                     onChange={(e) => alterarQuantidade(item, e.target.value)}
                                                     className="bi-qtd-input"
                                                 />

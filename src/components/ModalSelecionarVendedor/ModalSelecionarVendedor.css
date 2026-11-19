@@ -195,3 +195,32 @@
     opacity: 0.6;
     cursor: not-allowed;
 }
+
+/* Lista para o administrador escolher em nome de quem vender */
+.vnd-lista {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-height: 320px;
+    overflow-y: auto;
+}
+
+.vnd-lista-item {
+    text-align: left;
+    padding: 12px 14px;
+    background-color: #1c1c1c;
+    border: 1px solid #3d3d3d;
+    border-radius: 8px;
+    color: #fff;
+    font-size: 0.95rem;
+    cursor: pointer;
+}
+
+.vnd-lista-item span {
+    color: #a8a8a8;
+    font-size: 0.82rem;
+}
+
+.vnd-lista-item:hover {
+    border-color: #4CAF50;
+}

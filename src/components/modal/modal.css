@@ -83,3 +83,8 @@
 .am-btn:active {
     transform: scale(0.99);
 }
+
+/* Mensagens com quebra de linha (ex.: lista de itens sem estoque) */
+.am-content p {
+  white-space: pre-line;
+}

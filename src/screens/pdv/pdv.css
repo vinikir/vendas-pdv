@@ -317,7 +317,7 @@
 }
 
 .qtd-input-tabela {
-  width: 56px;
+  width: 80px;
   padding: 6px 8px;
   background-color: var(--primary-bg);
   border: 1px solid var(--border-color);
@@ -1276,4 +1276,50 @@
   font-size: 0.8rem;
   cursor: pointer;
   white-space: nowrap;
+}
+
+/* Desconto: alternância % / R$ e botão de desconto por item */
+.desconto-tipo {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.desconto-tipo button {
+  flex: 1;
+  padding: 8px;
+  background: transparent;
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  border-radius: 8px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.desconto-tipo button.ativo {
+  border-color: var(--accent-color);
+  color: var(--accent-color);
+  background-color: rgba(76, 175, 80, 0.1);
+}
+
+.desconto-btn-aplicar:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-desconto-item {
+  background: transparent;
+  border: 1px dashed var(--border-color);
+  color: var(--text-primary);
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 0.88rem;
+  cursor: pointer;
+  min-width: 64px;
+  text-align: right;
+}
+
+.btn-desconto-item:hover {
+  border-color: var(--accent-color);
+  color: var(--accent-color);
 }

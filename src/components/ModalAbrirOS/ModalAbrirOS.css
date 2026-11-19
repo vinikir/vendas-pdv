@@ -1,0 +1,249 @@
+.aos-overlay {
+    position: fixed;
+    inset: 0;
+    background-color: rgba(0, 0, 0, 0.65);
+    backdrop-filter: blur(2px);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.aos-modal {
+    background-color: #232323;
+    border: 1px solid #3d3d3d;
+    border-radius: 12px;
+    width: 640px;
+    max-width: 94vw;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.55);
+}
+
+.aos-header {
+    padding: 16px 22px;
+    border-bottom: 1px solid #3d3d3d;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.aos-header h3 {
+    color: #fff;
+    margin: 0;
+    font-size: 1.15rem;
+    font-weight: 700;
+}
+
+.aos-close-btn {
+    background: none;
+    border: none;
+    color: #a8a8a8;
+    font-size: 1.6rem;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.aos-body {
+    padding: 18px 22px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.aos-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+.aos-campo {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.aos-campo label,
+.aos-checklist-titulo {
+    color: #a8a8a8;
+    font-size: 0.78rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.aos-campo input,
+.aos-campo textarea {
+    background-color: #1c1c1c;
+    border: 1px solid #3d3d3d;
+    border-radius: 8px;
+    color: #fff;
+    padding: 10px 12px;
+    font-size: 0.95rem;
+    outline: none;
+    font-family: inherit;
+    resize: vertical;
+}
+
+.aos-campo input:focus,
+.aos-campo textarea:focus {
+    border-color: #4CAF50;
+}
+
+.aos-checklist {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.aos-check-linha {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    background-color: #1c1c1c;
+    border: 1px solid #3d3d3d;
+    border-radius: 8px;
+    color: #fff;
+    font-size: 0.92rem;
+}
+
+.aos-check-opcoes {
+    display: flex;
+    gap: 6px;
+}
+
+.aos-check-opcoes button {
+    min-width: 56px;
+    padding: 6px 10px;
+    background: transparent;
+    border: 1px solid #3d3d3d;
+    border-radius: 6px;
+    color: #a8a8a8;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.aos-check-opcoes button.ativo-sim {
+    border-color: #4CAF50;
+    color: #4CAF50;
+    background-color: rgba(76, 175, 80, 0.12);
+}
+
+.aos-check-opcoes button.ativo-nao {
+    border-color: #ef5350;
+    color: #ef5350;
+    background-color: rgba(239, 83, 80, 0.12);
+}
+
+.aos-dica {
+    margin: 0;
+    color: #a8a8a8;
+    font-size: 0.85rem;
+}
+
+.aos-erro {
+    color: #ef5350;
+    font-size: 0.88rem;
+    font-weight: 600;
+}
+
+.aos-footer {
+    padding: 14px 22px;
+    border-top: 1px solid #3d3d3d;
+    display: flex;
+    gap: 10px;
+}
+
+.aos-footer button {
+    flex: 1;
+    padding: 12px;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.aos-footer button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.aos-btn-secundario {
+    background: transparent;
+    border: 1px solid #3d3d3d;
+    color: #e0e0e0;
+}
+
+.aos-btn-primario {
+    background-color: #4CAF50;
+    border: none;
+    color: #fff;
+}
+
+/* Lista de OS abertas */
+.los-tabela {
+    width: 100%;
+    border-collapse: collapse;
+    color: #fff;
+    font-size: 0.9rem;
+}
+
+.los-tabela th {
+    text-align: left;
+    color: #a8a8a8;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    padding: 10px 14px;
+    border-bottom: 1px solid #3d3d3d;
+}
+
+.los-tabela td {
+    padding: 12px 14px;
+    border-bottom: 1px solid #2b2b2b;
+}
+
+.los-linha {
+    cursor: pointer;
+}
+
+.los-linha:hover {
+    background-color: #2b2b2b;
+}
+
+.los-valor {
+    text-align: right !important;
+}
+
+.los-vazio {
+    padding: 30px;
+    text-align: center;
+    color: #a8a8a8;
+}
+
+.los-busca {
+    padding: 12px 22px 0;
+}
+
+.los-busca input {
+    width: 100%;
+    box-sizing: border-box;
+    background-color: #1c1c1c;
+    border: 1px solid #3d3d3d;
+    border-radius: 8px;
+    color: #fff;
+    padding: 10px 12px;
+    outline: none;
+}
+
+@media (max-width: 600px) {
+    .aos-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .aos-footer {
+        flex-direction: column;
+    }
+}

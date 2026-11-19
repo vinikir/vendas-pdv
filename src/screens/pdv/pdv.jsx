@@ -9,11 +9,14 @@ import ModalBuscaVendas from '../../components/ModalBuscaVendas/ModalBuscaVendas
 import ModalListarOrcamentos from '../../components/ModalListarOrcamentos/ModalListarOrcamentos';
 import ModalSelecionarVendedor from '../../components/ModalSelecionarVendedor/ModalSelecionarVendedor';
 import ModalAuditoria from '../../components/ModalAuditoria/ModalAuditoria';
+import ModalAbrirOS from '../../components/ModalAbrirOS/ModalAbrirOS';
+import ModalListarOS from '../../components/ModalAbrirOS/ModalListarOS';
 import Modal from '../../components/modal/modal';
 import useUsuarioStore from '../../store/useUsuarioStore';
 import { useAuth } from '../../Contexts/AuthContext';
 import { gerarEBaixarPdfVenda } from '../../utils/pdfVenda';
 import { gerarEBaixarPdfOrcamento } from '../../utils/pdfOrcamento';
+import { ehServico, tetoItem, tetoVenda, subtotalVenda, descontoTotalVenda, aplicarValorNoItem, aplicarDescontoNaVenda, recalcularItem } from '../../utils/descontos';
 import { buscarTaxasPagamento, calcularTaxaPagamento, calcularTaxasPagamentos, mensagemTaxaPendente, mensagemTaxasPendentes } from '../../utils/taxasPagamento';
 
 const obterIdCliente = (cliente) => cliente?._id?.$oid || cliente?._id;
@@ -52,8 +55,13 @@ const PDV = () => {
     const [gerandoNota, setGerandoNota] = useState(false);
     const [gerandoOrcamento, setGerandoOrcamento] = useState(false);
     const [mostrarModalOrcamentos, setMostrarModalOrcamentos] = useState(false);
-    const [mostrarModalDesconto, setMostrarModalDesconto] = useState(false);
-    const [descontoGeral, setDescontoGeral] = useState(0); // percentual (0-100) aplicado sobre o total
+    // modalDesconto: null | { escopo: 'venda' } | { escopo: 'item', index }
+    const [modalDesconto, setModalDesconto] = useState(null);
+    const [tipoDesconto, setTipoDesconto] = useState('percentual'); // 'percentual' | 'valor'
+    // percentual: texto com vírgula (ex "10,5"); valor: dígitos em centavos (ex "1250" = R$ 12,50)
+    const [entradaDesconto, setEntradaDesconto] = useState('');
+    // Pedido acima do teto: { escopo, index, pedido, possivel }
+    const [limiteDesconto, setLimiteDesconto] = useState(null);
     // modoVisualizacao: null | { tipo: 'venda' | 'orcamento', dados: objeto carregado da listagem }
     const [modoVisualizacao, setModoVisualizacao] = useState(null);
     const [gerandoNotaVisualizacao, setGerandoNotaVisualizacao] = useState(false);
@@ -67,12 +75,19 @@ const PDV = () => {
     // autenticação de administrador (gate para ações sensíveis: desconto geral, cancelar venda, ver auditoria)
     const [mostrarModalAutenticacao, setMostrarModalAutenticacao] = useState(false);
     const [autenticacaoPendente, setAutenticacaoPendente] = useState(null); // { descricao, onSucesso }
-    const [autorizacaoDesconto, setAutorizacaoDesconto] = useState(null);
     const [cancelandoVenda, setCancelandoVenda] = useState(false);
     const [motivoCancelamento, setMotivoCancelamento] = useState(null); // null = modal fechado
     const [erroMotivoCancelamento, setErroMotivoCancelamento] = useState('');
     const [mostrarModalAuditoria, setMostrarModalAuditoria] = useState(false);
     const [auditoriaToken, setAuditoriaToken] = useState(null);
+    // OS carregada no PDV: o carrinho passa a ser os itens dela (estoque reservado no back).
+    const [osAtual, setOsAtual] = useState(null);
+    const [mostrarModalAbrirOS, setMostrarModalAbrirOS] = useState(false);
+    const [mostrarModalListarOS, setMostrarModalListarOS] = useState(false);
+    const [salvandoOS, setSalvandoOS] = useState(false);
+    const osAtualRef = useRef(osAtual);
+    osAtualRef.current = osAtual;
+    const acaoAposVendedorRef = useRef(null);
     const horaAtualRef = useRef(moment());
     const avisoQtdTimeoutRef = useRef(null);
     const itensSelecionadosRef = useRef(itensSelecionados);
@@ -116,11 +131,22 @@ const PDV = () => {
             }
             if (e.key === "F2") {
                 e.preventDefault();
-                setMostrarModalCliente(true)
+                if (!osAtualRef.current) setMostrarModalCliente(true)
             }
             if (e.key === "F3") {
                 e.preventDefault();
                 abrirFinalizar()
+            }
+            if (osAtualRef.current) {
+                if (e.key === "F8") {
+                    e.preventDefault();
+                    abrirModalDesconto()
+                }
+                if (e.key === "F9") {
+                    e.preventDefault();
+                    salvarOSeLiberar()
+                }
+                return;
             }
             if (e.key === "F4") {
                 e.preventDefault();
@@ -138,6 +164,14 @@ const PDV = () => {
             if (e.key === "F7") {
                 e.preventDefault();
                 setMostrarModalOrcamentos(true)
+            }
+            if (e.key === "F9") {
+                e.preventDefault();
+                iniciarAberturaOS()
+            }
+            if (e.key === "F10") {
+                e.preventDefault();
+                setMostrarModalListarOS(true)
             }
             if (e.key === "F8") {
                 e.preventDefault();
@@ -331,8 +365,13 @@ const PDV = () => {
         const itensPendentes = itensPendentesAposVendedor;
         setItensPendentesAposVendedor(null);
 
+        const acaoPendente = acaoAposVendedorRef.current;
+        acaoAposVendedorRef.current = null;
+
         if (itensPendentes) {
             abrirFinalizar(itensPendentes);
+        } else if (acaoPendente) {
+            acaoPendente();
         }
     }
 
@@ -341,28 +380,133 @@ const PDV = () => {
         setMostrarModalAutenticacao(true);
     }
 
-    const abrirModalDesconto = () => {
-        solicitarAutenticacaoAdmin({
-            descricao: 'Autorização de administrador para alterar o desconto geral.',
-            permissao: ['vendas', 'autorizar_desconto'],
-            onSucesso: (admin) => {
-                setAutorizacaoDesconto(admin);
-                setMostrarModalDesconto(true);
-            }
-        });
+    const percentualParaTexto = (valor) => (valor ? String(arredondar(valor)).replace('.', ',') : '');
+
+    const abrirModalDesconto = (escopo = 'venda', index = null) => {
+        if (modoVisualizacaoRef.current) return;
+        const itens = itensSelecionadosRef.current;
+        if (itens.length === 0) {
+            setMsgModal('Nenhum item na venda.');
+            setModalAberto(true);
+            return;
+        }
+
+        const alvo = escopo === 'item' ? [itens[index]] : itens;
+        if (!alvo[0]) return;
+        if (alvo.every(ehServico)) {
+            setMsgModal('Serviço não recebe desconto.');
+            setModalAberto(true);
+            return;
+        }
+
+        const base = subtotalVenda(alvo);
+        const descontoAtual = descontoTotalVenda(alvo);
+        setTipoDesconto('percentual');
+        setEntradaDesconto(base > 0 && descontoAtual > 0 ? percentualParaTexto((descontoAtual / base) * 100) : '');
+        setModalDesconto(escopo === 'item' ? { escopo, index } : { escopo: 'venda' });
     }
 
-    const aplicarDesconto = () => {
-        setMostrarModalDesconto(false);
+    const trocarTipoDesconto = (tipo) => {
+        if (tipo === tipoDesconto) return;
+        const pedido = calcularDescontoPedido();
+        const base = calcularBaseDesconto();
+        setTipoDesconto(tipo);
+        if (tipo === 'valor') {
+            setEntradaDesconto(pedido > 0 ? numeroParaDigitos(pedido) : '');
+        } else {
+            setEntradaDesconto(base > 0 && pedido > 0 ? percentualParaTexto((pedido / base) * 100) : '');
+        }
+    }
 
-        if (descontoGeral > 0 && autorizacaoDesconto?.token) {
+    const alterarEntradaDesconto = (texto) => {
+        if (tipoDesconto === 'valor') {
+            setEntradaDesconto(texto.replace(/\D/g, '').replace(/^0+/, '').slice(0, 9));
+            return;
+        }
+        // Só dígitos e uma vírgula, com até 2 casas, limitado a 100.
+        let limpo = texto.replace('.', ',').replace(/[^\d,]/g, '');
+        const [inteiro, ...resto] = limpo.split(',');
+        limpo = resto.length ? `${inteiro},${resto.join('').slice(0, 2)}` : inteiro;
+        if (parseFloat(limpo.replace(',', '.')) > 100) limpo = '100';
+        setEntradaDesconto(limpo);
+    }
+
+    const itensDoEscopo = (escopo = modalDesconto) => {
+        if (!escopo) return [];
+        const itens = itensSelecionadosRef.current;
+        return escopo.escopo === 'item' ? [itens[escopo.index]].filter(Boolean) : itens;
+    }
+
+    const calcularBaseDesconto = () => subtotalVenda(itensDoEscopo());
+
+    // Desconto pedido em R$, a partir do que foi digitado.
+    const calcularDescontoPedido = () => {
+        if (tipoDesconto === 'valor') return digitosParaNumero(entradaDesconto);
+        const percentual = parseFloat(String(entradaDesconto).replace(',', '.')) || 0;
+        return arredondar(calcularBaseDesconto() * (percentual / 100));
+    }
+
+    const efetivarDesconto = ({ escopo, index }, valor, admin = null) => {
+        const autorizado = Boolean(admin);
+        setItensSelecionados((itens) => (
+            escopo === 'item'
+                ? itens.map((item, i) => (i === index ? aplicarValorNoItem(item, Math.min(valor, tetoItem(item, autorizado)), autorizado) : item))
+                : aplicarDescontoNaVenda(itens, valor, autorizado)
+        ));
+        setModalDesconto(null);
+        setLimiteDesconto(null);
+
+        if (admin?.token) {
+            const alvo = escopo === 'item' ? `no item "${itensSelecionadosRef.current[index]?.produtoNome}"` : 'na venda';
             api.post('auditoria', {
                 tipo: 'desconto_aplicado',
-                detalhes: `Desconto geral de ${descontoGeral}% aplicado (R$ ${calcularValorDescontoGeral().toFixed(2).replace('.', ',')}).`
+                detalhes: `Desconto de R$ ${valor.toFixed(2).replace('.', ',')} ${alvo}, acima do teto, autorizado por administrador.`
             }, {
-                headers: { Authorization: `Bearer ${autorizacaoDesconto.token}` }
+                headers: { Authorization: `Bearer ${admin.token}` }
             }).catch((err) => console.log('Erro ao registrar auditoria do desconto', err));
         }
+    }
+
+    const confirmarDesconto = () => {
+        if (!modalDesconto) return;
+        const itens = itensDoEscopo();
+        const pedido = calcularDescontoPedido();
+        const teto = modalDesconto.escopo === 'item' ? tetoItem(itens[0]) : tetoVenda(itens);
+
+        if (pedido <= 0) {
+            efetivarDesconto(modalDesconto, 0);
+            return;
+        }
+
+        if (pedido > teto + 0.005) {
+            setLimiteDesconto({ ...modalDesconto, pedido, possivel: teto });
+            return;
+        }
+
+        efetivarDesconto(modalDesconto, pedido);
+    }
+
+    const removerDesconto = () => {
+        if (!modalDesconto) return;
+        efetivarDesconto(modalDesconto, 0);
+    }
+
+    const aplicarDescontoPossivel = () => {
+        if (!limiteDesconto) return;
+        efetivarDesconto(limiteDesconto, limiteDesconto.possivel);
+    }
+
+    // Acima do teto: administrador autoriza com login e senha (permissão vendas/autorizar_desconto).
+    const liberarDescontoComAdmin = () => {
+        if (!limiteDesconto) return;
+        const pendente = limiteDesconto;
+        setLimiteDesconto(null);
+        setModalDesconto(null);
+        solicitarAutenticacaoAdmin({
+            descricao: `Autorização de administrador para desconto de R$ ${pendente.pedido.toFixed(2).replace('.', ',')} (máximo permitido: R$ ${pendente.possivel.toFixed(2).replace('.', ',')}).`,
+            permissao: ['vendas', 'autorizar_desconto'],
+            onSucesso: (admin) => efetivarDesconto(pendente, pendente.pedido, admin)
+        });
     }
 
     const abrirAuditoria = () => {
@@ -415,7 +559,13 @@ const PDV = () => {
         });
     }
 
-    const abrirFinalizar = (itensParaFinalizar) => {
+    const abrirFinalizar = (itensParaFinalizar, osJaSalva = false) => {
+        // OS: grava os itens atuais antes de cobrar, porque o back finaliza pelo que está salvo.
+        if (osAtualRef.current && !osJaSalva) {
+            salvarItensOS().then((ok) => { if (ok) abrirFinalizar(null, true); });
+            return;
+        }
+
         const itens = Array.isArray(itensParaFinalizar) ? itensParaFinalizar : itensSelecionadosRef.current;
 
         if (itens.length === 0) {
@@ -430,8 +580,7 @@ const PDV = () => {
             return;
         }
 
-        const subtotal = itens.reduce((total, item) => total + calcularTotalItem(item), 0);
-        const totalComDesconto = arredondar(subtotal - arredondar(subtotal * (descontoGeral / 100)));
+        const totalComDesconto = arredondar(itens.reduce((total, item) => total + calcularTotalItem(item), 0));
 
         setMsgFinalizar('');
         setPagamentosAdicionados([]);
@@ -442,6 +591,159 @@ const PDV = () => {
         setValorPagamentoAtual(numeroParaDigitos(totalComDesconto));
         setMostrarModalFinalizar(true);
     }
+
+    // ---- Ordem de serviço ----
+    const itemParaOS = (item) => ({
+        ...item,
+        qtd: Number(item.qtd) || 1,
+        tipo: ehServico(item) ? 'servico' : (item.tipo || 'venda'),
+        valorTotal: Number(item.valorTotal) || 0,
+    });
+
+    const mensagemItensSemEstoque = (lista) => (
+        'Estes itens não entraram na OS por falta de estoque:\n' +
+        lista.map((i) => `• ${i.nome || i.produtoId}${i.disponivel !== undefined ? ` (disponível: ${i.disponivel})` : ''}`).join('\n')
+    );
+
+    const limparEstadoOS = () => {
+        setOsAtual(null);
+        limparBag();
+        setClienteSelecionado(null);
+        setVendedorSelecionado(null);
+    };
+
+    const iniciarAberturaOS = () => {
+        if (modoVisualizacaoRef.current || osAtualRef.current) return;
+        if (!vendedorSelecionadoRef.current) {
+            acaoAposVendedorRef.current = () => setMostrarModalAbrirOS(true);
+            setMostrarModalVendedor(true);
+            return;
+        }
+        setMostrarModalAbrirOS(true);
+    };
+
+    const confirmarAberturaOS = (dados, acao) => {
+        const vendedor = vendedorSelecionadoRef.current;
+        if (!vendedor) return;
+        const itens = itensSelecionadosRef.current.map(itemParaOS);
+        const cliente = clienteSelecionado;
+
+        setSalvandoOS(true);
+        api.post('ordem-servico/salvar', {
+            placa: dados.placa,
+            marca: dados.marca,
+            modelo: dados.modelo,
+            cor: dados.cor,
+            quilometragem: dados.km,
+            servicoASerExecutado: dados.servicoASerExecutado,
+            checkList: dados.checkList,
+            produtos: itens,
+            valorTotal: arredondar(itens.reduce((t, i) => t + i.valorTotal, 0)),
+            mecanico: [],
+            status: 'aberto',
+            vendedorId: vendedor.id,
+            vendedorNome: vendedor.nome,
+            ...(obterIdCliente(cliente) ? { clienteId: obterIdCliente(cliente), clienteNome: cliente.nome } : {}),
+        }).then(async (res) => {
+            let ordem = res.data?.valor?.ordem;
+            const semEstoque = res.data?.valor?.itensSemEstoque || [];
+
+            // Itens recusados por estoque saem da OS, mas o valorTotal salvo ainda os conta: recalcula.
+            if (semEstoque.length > 0 && ordem?._id) {
+                const r = await api.post('ordem-servico/itens', {
+                    _id: ordem._id,
+                    itens: ordem.produtos || [],
+                    usuarioId: usuario?.id,
+                    usuarioNome: usuario?.nome,
+                });
+                ordem = r.data?.valor?.ordem || ordem;
+            }
+
+            setMostrarModalAbrirOS(false);
+
+            if (acao === 'finalizar' && ordem) {
+                setOsAtual(ordem);
+                osAtualRef.current = ordem;
+                const itensOS = ordem.produtos || [];
+                setItensSelecionados(itensOS);
+                itensSelecionadosRef.current = itensOS;
+                if (semEstoque.length > 0) {
+                    setMsgModal(mensagemItensSemEstoque(semEstoque));
+                    setModalAberto(true);
+                    return;
+                }
+                abrirFinalizar(itensOS, true);
+                return;
+            }
+
+            limparEstadoOS();
+            setMsgModal(`OS Nº ${ordem?.ordemServicoId ?? ''} aberta. PDV liberado.` + (semEstoque.length > 0 ? `\n\n${mensagemItensSemEstoque(semEstoque)}` : ''));
+            setModalAberto(true);
+        }).catch((err) => {
+            setMsgModal(err.response?.data?.valor || 'Erro ao abrir a ordem de serviço.');
+            setModalAberto(true);
+        }).finally(() => setSalvandoOS(false));
+    };
+
+    const carregarOS = (ordem) => {
+        if (itensSelecionadosRef.current.length > 0) {
+            setMsgModal('Finalize ou limpe a venda atual antes de abrir uma OS.');
+            setModalAberto(true);
+            return;
+        }
+        setMostrarModalListarOS(false);
+        setOsAtual(ordem);
+        setItensSelecionados(Array.isArray(ordem.produtos) ? ordem.produtos : []);
+        setClienteSelecionado(ordem.clienteId ? { _id: ordem.clienteId, nome: ordem.clienteNome } : null);
+        setVendedorSelecionado(ordem.vendedorId ? { id: ordem.vendedorId, nome: ordem.vendedorNome } : null);
+    };
+
+    // Grava a lista atual de itens na OS. Devolve true se entrou tudo.
+    const salvarItensOS = () => {
+        const ordem = osAtualRef.current;
+        if (!ordem) return Promise.resolve(false);
+        setSalvandoOS(true);
+        return api.post('ordem-servico/itens', {
+            _id: ordem._id,
+            itens: itensSelecionadosRef.current.map(itemParaOS),
+            usuarioId: usuario?.id,
+            usuarioNome: usuario?.nome,
+        }).then((res) => {
+            const atualizada = res.data?.valor?.ordem;
+            const semEstoque = res.data?.valor?.itensSemEstoque || [];
+            if (atualizada) {
+                setOsAtual(atualizada);
+                osAtualRef.current = atualizada;
+                setItensSelecionados(atualizada.produtos || []);
+                itensSelecionadosRef.current = atualizada.produtos || [];
+            }
+            if (semEstoque.length > 0) {
+                setMsgModal(mensagemItensSemEstoque(semEstoque));
+                setModalAberto(true);
+                return false;
+            }
+            return true;
+        }).catch((err) => {
+            setMsgModal(err.response?.data?.valor || 'Erro ao salvar os itens da OS.');
+            setModalAberto(true);
+            return false;
+        }).finally(() => setSalvandoOS(false));
+    };
+
+    const salvarOSeLiberar = () => {
+        const ordem = osAtualRef.current;
+        if (!ordem) return;
+        salvarItensOS().then((ok) => {
+            if (!ok) return;
+            limparEstadoOS();
+            setMsgModal(`OS Nº ${ordem.ordemServicoId ?? ''} salva. PDV liberado.`);
+            setModalAberto(true);
+        });
+    };
+
+    const sairDaOSSemSalvar = () => {
+        limparEstadoOS();
+    };
 
     const calcularFaltante = (lista = pagamentosAdicionados) => {
         const totalPago = lista.reduce((total, p) => total + p.valor, 0);
@@ -588,13 +890,21 @@ const PDV = () => {
 
         const emConversaoOrcamento = modoVisualizacao?.tipo === 'orcamento';
         const orcamentoAtual = emConversaoOrcamento ? modoVisualizacao.dados : null;
+        const ordemAtual = osAtual;
 
         // Na conversão de orçamento, preço/qtd vêm sempre do orçamento salvo no servidor;
         // o front só informa QUAIS produtoIds entram (ex: itens sem estoque ficam de fora).
-        const requisicao = emConversaoOrcamento
+        const requisicao = ordemAtual
+            ? api.post('ordem-servico/finalizar', {
+                _id: ordemAtual._id,
+                pagamento: pagamentosAdicionados.map(montarPagamentoPayload),
+            })
+            : emConversaoOrcamento
             ? api.post(`orcamento/${obterIdRegistro(orcamentoAtual)}/finalizar`, {
                 pagamento: pagamentosAdicionados.map(montarPagamentoPayload),
                 produtoIdsIncluidos: itensSelecionados.map((item) => item.produtoId),
+                // Só tem efeito quando o token é de administrador (venda em nome de outro vendedor).
+                ...(vendedorSelecionado?.id ? { vendedorId: vendedorSelecionado.id } : {}),
                 ...(clienteId ? { clienteId } : {})
             }, {
                 headers: vendedorSelecionado?.token ? { Authorization: `Bearer ${vendedorSelecionado.token}` } : undefined
@@ -613,7 +923,10 @@ const PDV = () => {
         requisicao.then((res) => {
             const vendaSalva = emConversaoOrcamento ? res.data?.valor?.venda : res.data?.valor;
             setDadosParaNota({
-                venda: { vendaId: vendaSalva?.vendaId, cliente: clienteSelecionado?.nome },
+                venda: {
+                    vendaId: ordemAtual ? `OS ${ordemAtual.ordemServicoId}` : vendaSalva?.vendaId,
+                    cliente: clienteSelecionado?.nome
+                },
                 vendedorNome: vendedorSelecionado?.nome,
                 itens: itensSelecionados,
                 pagamentos: pagamentosAdicionados.map((p) => ({ metodo: p.metodo, valor: p.valor, valorRecebido: p.valorRecebido, troco: p.troco })),
@@ -627,13 +940,13 @@ const PDV = () => {
             setPagamentosAdicionados([]);
             limparBag();
             setClienteSelecionado(null);
-            setDescontoGeral(0);
             setModoVisualizacao(null);
+            setOsAtual(null);
             setDadosConversaoPendente(null);
             setVendedorSelecionado(null);
             setMostrarPerguntaNota(true);
         }).catch((err) => {
-            setMsgFinalizar(err.response?.data?.valor || (emConversaoOrcamento ? 'Erro ao converter orçamento em venda.' : 'Erro ao finalizar venda.'));
+            setMsgFinalizar(err.response?.data?.valor || (ordemAtual ? 'Erro ao finalizar a ordem de serviço.' : emConversaoOrcamento ? 'Erro ao converter orçamento em venda.' : 'Erro ao finalizar venda.'));
         }).finally(() => {
             setFinalizando(false);
         });
@@ -673,14 +986,17 @@ const PDV = () => {
 
     const alterarQuantidadeItem = (index, valorInput) => {
         const numeros = valorInput.replace(/[^\d]/g, '');
-        let qtd = parseInt(numeros, 10);
+        // Vazio é permitido enquanto digita; normalizarQuantidadeItem volta para 1 no blur.
+        let qtd = numeros === '' ? '' : parseInt(numeros, 10);
 
-        if (isNaN(qtd) || qtd < 1) qtd = 1;
+        if (qtd !== '' && qtd < 1) qtd = 1;
 
         setItensSelecionados((itens) => itens.map((item, i) => {
             if (i !== index) return item;
 
-            if (item.estoque && qtd > item.estoque) {
+            // Serviço não tem estoque real (o back só conta vendas), então não limita.
+            const ehServico = item.ehServico || item.tipo === 'servico';
+            if (qtd !== '' && !ehServico && item.estoque && qtd > item.estoque) {
                 qtd = item.estoque;
 
                 clearTimeout(avisoQtdTimeoutRef.current);
@@ -691,28 +1007,23 @@ const PDV = () => {
                 setAvisoQtd(null);
             }
 
-            return {
-                ...item,
-                qtd,
-                valorTotal: item.valorUnitario * qtd - (item.valorDoDesconto || 0)
-            };
+            return recalcularItem({ ...item, qtd });
         }))
     }
 
-    const calcularTotalItem = (item) => {
-        return (item.valorTotal * (item.quantidade || 1)) - (item.desconto || 0);
-    };
+    const normalizarQuantidadeItem = (index) => {
+        setItensSelecionados((itens) => itens.map((item, i) => (
+            i === index && item.qtd === ''
+                ? recalcularItem({ ...item, qtd: 1 })
+                : item
+        )))
+    }
 
-    const calcularSubtotalItens = () => {
-        return itensSelecionados.reduce((total, item) => total + calcularTotalItem(item), 0);
-    };
-
-    const calcularValorDescontoGeral = () => {
-        return arredondar(calcularSubtotalItens() * (descontoGeral / 100));
-    };
+    // valorTotal do item já é o líquido (subtotal - desconto do item).
+    const calcularTotalItem = (item) => Number(item.valorTotal) || 0;
 
     const calcularTotalVenda = () => {
-        return arredondar(calcularSubtotalItens() - calcularValorDescontoGeral());
+        return arredondar(itensSelecionados.reduce((total, item) => total + calcularTotalItem(item), 0));
     };
 
     const calcularTotalDescontos = () => {
@@ -744,7 +1055,9 @@ const PDV = () => {
                             <span className="info-label">Vendedor:</span>
                             {vendedorSelecionado ? (
                                 <div className="cliente-valor-linha">
-                                    <span className="info-value">{vendedorSelecionado.nome}</span>
+                                    <span className="info-value" title={vendedorSelecionado.autorizadoPor ? `Escolhido pelo administrador ${vendedorSelecionado.autorizadoPor.nome}` : undefined}>
+                                        {vendedorSelecionado.nome}{vendedorSelecionado.autorizadoPor ? ' (via admin)' : ''}
+                                    </span>
                                     <button
                                         type="button"
                                         className="btn-remover-cliente"
@@ -783,7 +1096,39 @@ const PDV = () => {
 
                 <div className="menu-atalhos">
                     <h3>Atalhos</h3>
-                    {modoVisualizacao ? (
+                    {osAtual ? (
+                        <ul>
+                            <li>
+                                <button className="atalho-btn" onClick={() => setMostraModal(true)} disabled={salvandoOS}>
+                                    <span className="atalho-key">F1</span>
+                                    <span className="atalho-label">Adicionar item</span>
+                                </button>
+                            </li>
+                            <li>
+                                <button className="atalho-btn" onClick={() => abrirFinalizar()} disabled={salvandoOS}>
+                                    <span className="atalho-key">F3</span>
+                                    <span className="atalho-label">Finalizar OS</span>
+                                </button>
+                            </li>
+                            <li>
+                                <button className="atalho-btn" onClick={() => abrirModalDesconto('venda')} disabled={salvandoOS}>
+                                    <span className="atalho-key">F8</span>
+                                    <span className="atalho-label">Desconto</span>
+                                </button>
+                            </li>
+                            <li>
+                                <button className="atalho-btn" onClick={salvarOSeLiberar} disabled={salvandoOS}>
+                                    <span className="atalho-key">F9</span>
+                                    <span className="atalho-label">{salvandoOS ? 'Salvando...' : 'Salvar e liberar'}</span>
+                                </button>
+                            </li>
+                            <li>
+                                <button className="atalho-btn" onClick={sairDaOSSemSalvar} disabled={salvandoOS}>
+                                    <span className="atalho-label">Sair sem salvar</span>
+                                </button>
+                            </li>
+                        </ul>
+                    ) : modoVisualizacao ? (
                         <ul>
                             <li>
                                 <button className="atalho-btn" onClick={fecharVisualizacao}>
@@ -863,9 +1208,21 @@ const PDV = () => {
                                 </button>
                             </li>
                             <li>
-                                <button className="atalho-btn" onClick={abrirModalDesconto}>
+                                <button className="atalho-btn" onClick={() => abrirModalDesconto('venda')}>
                                     <span className="atalho-key">F8</span>
-                                    <span className="atalho-label">Desconto{descontoGeral > 0 ? ` (${descontoGeral}%)` : ''}</span>
+                                    <span className="atalho-label">Desconto</span>
+                                </button>
+                            </li>
+                            <li>
+                                <button className="atalho-btn" onClick={iniciarAberturaOS}>
+                                    <span className="atalho-key">F9</span>
+                                    <span className="atalho-label">Abrir OS</span>
+                                </button>
+                            </li>
+                            <li>
+                                <button className="atalho-btn" onClick={() => setMostrarModalListarOS(true)}>
+                                    <span className="atalho-key">F10</span>
+                                    <span className="atalho-label">OS abertas</span>
                                 </button>
                             </li>
                             <li>
@@ -891,6 +1248,16 @@ const PDV = () => {
 
             {/* Área Principal */}
             <main className="pdv-main">
+                {osAtual && (
+                    <div className="visualizacao-banner">
+                        <span>
+                            <strong>OS Nº {osAtual.ordemServicoId}</strong> · {osAtual.placa}
+                            {[osAtual.marca, osAtual.modelo, osAtual.cor].filter(Boolean).length > 0 ? ` · ${[osAtual.marca, osAtual.modelo, osAtual.cor].filter(Boolean).join(' ')}` : ''}
+                            {osAtual.km ? ` · ${osAtual.km} km` : ''}
+                            {` — aberta em ${moment(osAtual.dataAbertura || osAtual.createdAt).format('DD/MM/YYYY HH:mm')}. Adicione itens e use "Salvar e liberar" ou "Finalizar OS".`}
+                        </span>
+                    </div>
+                )}
                 {modoVisualizacao && (
                     <div className="visualizacao-banner">
                         {modoVisualizacao.tipo === 'venda' ? (
@@ -939,10 +1306,11 @@ const PDV = () => {
                                         <td className="text-center">
                                             <div className="qtd-input-wrapper">
                                                 <input
-                                                    type="number"
-                                                    min="1"
-                                                    max={item.estoque || undefined}
-                                                    value={item.qtd || 1}
+                                                    type="text"
+                                                    inputMode="numeric"
+                                                    value={item.qtd ?? 1}
+                                                    onFocus={(e) => e.target.select()}
+                                                    onBlur={() => normalizarQuantidadeItem(index)}
                                                     onChange={(e) => alterarQuantidadeItem(index, e.target.value)}
                                                     className="qtd-input-tabela"
                                                     disabled={!!modoVisualizacao}
@@ -953,7 +1321,20 @@ const PDV = () => {
                                             </div>
                                         </td>
                                         <td className="text-right">R$ {item.valorUnitario.toFixed(2).replace(".", ",")}</td>
-                                        <td className="text-right">{(item.desconto || 0).toFixed(2).replace(".", ",")}</td>
+                                        <td className="text-right">
+                                            {modoVisualizacao || ehServico(item) ? (
+                                                Number(item.desconto || 0).toFixed(2).replace(".", ",")
+                                            ) : (
+                                                <button
+                                                    type="button"
+                                                    className="btn-desconto-item"
+                                                    onClick={() => abrirModalDesconto('item', index)}
+                                                    title="Dar desconto neste item"
+                                                >
+                                                    {Number(item.desconto || 0).toFixed(2).replace(".", ",")}
+                                                </button>
+                                            )}
+                                        </td>
                                         <td className="text-right">R$ {calcularTotalItem(item).toFixed(2).replace(".", ",")}</td>
                                         <td className="text-center">
                                             {!modoVisualizacao && (
@@ -989,12 +1370,6 @@ const PDV = () => {
                         <span>Descontos:</span>
                         <span>- R$ {itensSelecionados.reduce((total, item) => total + (item.valorDoDesconto || 0), 0).toFixed(2).replace(".", ",")}</span>
                     </div>
-                    {descontoGeral > 0 && (
-                        <div className="total-linha desconto">
-                            <span>Desconto geral ({descontoGeral}%):</span>
-                            <span>- R$ {calcularValorDescontoGeral().toFixed(2).replace(".", ",")}</span>
-                        </div>
-                    )}
                     <div className="total-linha total-geral">
                         <span>Total:</span>
                         <span>R$ {calcularTotalVenda().toFixed(2).replace(".", ",")}</span>
@@ -1032,8 +1407,9 @@ const PDV = () => {
             {
                 mostrarModalVendedor && (
                     <ModalSelecionarVendedor
+                        permitirAdminEscolher
                         onSelecionar={vendedorSelecionadoConfirmado}
-                        onClose={() => { setMostrarModalVendedor(false); setItensPendentesAposVendedor(null); }}
+                        onClose={() => { setMostrarModalVendedor(false); setItensPendentesAposVendedor(null); acaoAposVendedorRef.current = null; }}
                     />
                 )
             }
@@ -1102,7 +1478,7 @@ const PDV = () => {
                     <div className="finalizar-overlay" onClick={(e) => { if (e.target === e.currentTarget && !finalizando) setMostrarModalFinalizar(false); }}>
                         <div className="finalizar-modal">
                             <div className="finalizar-header">
-                                <h3>Finalizar Venda</h3>
+                                <h3>{osAtual ? `Finalizar OS Nº ${osAtual.ordemServicoId}` : 'Finalizar Venda'}</h3>
                                 <button
                                     className="finalizar-close-btn"
                                     onClick={() => setMostrarModalFinalizar(false)}
@@ -1341,6 +1717,24 @@ const PDV = () => {
                 )
             }
             {
+                mostrarModalAbrirOS && (
+                    <ModalAbrirOS
+                        salvando={salvandoOS}
+                        totalItens={itensSelecionados.length}
+                        onConfirmar={confirmarAberturaOS}
+                        onClose={() => setMostrarModalAbrirOS(false)}
+                    />
+                )
+            }
+            {
+                mostrarModalListarOS && (
+                    <ModalListarOS
+                        onClose={() => setMostrarModalListarOS(false)}
+                        onSelecionar={carregarOS}
+                    />
+                )
+            }
+            {
                 mostrarModalOrcamentos && (
                     <ModalListarOrcamentos
                         onClose={() => setMostrarModalOrcamentos(false)}
@@ -1349,43 +1743,82 @@ const PDV = () => {
                 )
             }
             {
-                mostrarModalDesconto && (
-                    <div className="desconto-overlay" onClick={(e) => { if (e.target === e.currentTarget) setMostrarModalDesconto(false); }}>
+                modalDesconto && (() => {
+                    const itensAlvo = itensDoEscopo();
+                    const base = subtotalVenda(itensAlvo);
+                    const teto = modalDesconto.escopo === 'item' ? tetoItem(itensAlvo[0]) : tetoVenda(itensAlvo);
+                    const pedido = calcularDescontoPedido();
+                    const fmt = (v) => v.toFixed(2).replace('.', ',');
+                    return (
+                        <div className="desconto-overlay" onClick={(e) => { if (e.target === e.currentTarget) setModalDesconto(null); }}>
+                            <div className="desconto-modal">
+                                <div className="desconto-header">
+                                    <h3>{modalDesconto.escopo === 'item' ? `Desconto: ${itensAlvo[0]?.produtoNome || 'item'}` : 'Desconto na venda'}</h3>
+                                    <button className="desconto-close-btn" onClick={() => setModalDesconto(null)}>&times;</button>
+                                </div>
+                                <div className="desconto-body">
+                                    <div className="desconto-tipo">
+                                        <button type="button" className={tipoDesconto === 'percentual' ? 'ativo' : ''} onClick={() => trocarTipoDesconto('percentual')}>%</button>
+                                        <button type="button" className={tipoDesconto === 'valor' ? 'ativo' : ''} onClick={() => trocarTipoDesconto('valor')}>R$</button>
+                                    </div>
+                                    <div className="desconto-input-wrapper">
+                                        {tipoDesconto === 'valor' && <span className="desconto-simbolo">R$</span>}
+                                        <input
+                                            type="text"
+                                            inputMode="decimal"
+                                            autoFocus
+                                            value={tipoDesconto === 'valor' ? (entradaDesconto ? formatarMoeda(entradaDesconto) : '') : entradaDesconto}
+                                            onChange={(e) => alterarEntradaDesconto(e.target.value)}
+                                            onKeyDown={(e) => { if (e.key === 'Enter') confirmarDesconto(); }}
+                                            placeholder={tipoDesconto === 'valor' ? '0,00' : '0'}
+                                            className="desconto-input"
+                                        />
+                                        {tipoDesconto === 'percentual' && <span className="desconto-simbolo">%</span>}
+                                    </div>
+                                    <p className="desconto-preview">
+                                        Desconto: R$ {fmt(pedido)} · Novo total: R$ {fmt(Math.max(base - pedido, 0))}
+                                    </p>
+                                    <p className="desconto-preview">
+                                        Máximo sem autorização: R$ {fmt(teto)}{base > 0 ? ` (${fmt((teto / base) * 100)}%)` : ''}
+                                        {itensAlvo.some(ehServico) && modalDesconto.escopo === 'venda' ? ' · serviços não recebem desconto' : ''}
+                                    </p>
+                                </div>
+                                <div className="desconto-footer">
+                                    <button className="desconto-btn-remover" onClick={removerDesconto}>
+                                        Remover desconto
+                                    </button>
+                                    <button className="desconto-btn-aplicar" onClick={confirmarDesconto}>
+                                        Aplicar
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    );
+                })()
+            }
+            {
+                limiteDesconto && (
+                    <div className="desconto-overlay" onClick={(e) => { if (e.target === e.currentTarget) setLimiteDesconto(null); }}>
                         <div className="desconto-modal">
                             <div className="desconto-header">
-                                <h3>Desconto Geral</h3>
-                                <button className="desconto-close-btn" onClick={() => setMostrarModalDesconto(false)}>&times;</button>
+                                <h3>Desconto acima do permitido</h3>
+                                <button className="desconto-close-btn" onClick={() => setLimiteDesconto(null)}>&times;</button>
                             </div>
                             <div className="desconto-body">
-                                <label>Percentual sobre o total</label>
-                                <div className="desconto-input-wrapper">
-                                    <input
-                                        type="number"
-                                        min="0"
-                                        max="100"
-                                        step="0.01"
-                                        value={descontoGeral || ''}
-                                        onChange={(e) => {
-                                            let v = parseFloat(e.target.value);
-                                            if (isNaN(v) || v < 0) v = 0;
-                                            if (v > 100) v = 100;
-                                            setDescontoGeral(v);
-                                        }}
-                                        placeholder="0"
-                                        className="desconto-input"
-                                    />
-                                    <span className="desconto-simbolo">%</span>
-                                </div>
+                                <p className="desconto-preview">O desconto pedido passa do limite dos itens.</p>
                                 <p className="desconto-preview">
-                                    Desconto: R$ {calcularValorDescontoGeral().toFixed(2).replace(".", ",")} · Novo total: R$ {calcularTotalVenda().toFixed(2).replace(".", ",")}
+                                    Você pediu: <strong>R$ {limiteDesconto.pedido.toFixed(2).replace('.', ',')}</strong> · Máximo possível: <strong>R$ {limiteDesconto.possivel.toFixed(2).replace('.', ',')}</strong>
                                 </p>
                             </div>
                             <div className="desconto-footer">
-                                <button className="desconto-btn-remover" onClick={() => { setDescontoGeral(0); setMostrarModalDesconto(false); }}>
-                                    Remover desconto
+                                <button className="desconto-btn-remover" onClick={() => setLimiteDesconto(null)}>
+                                    Cancelar
                                 </button>
-                                <button className="desconto-btn-aplicar" onClick={aplicarDesconto}>
-                                    Aplicar
+                                <button className="desconto-btn-remover" onClick={liberarDescontoComAdmin}>
+                                    Liberar com admin
+                                </button>
+                                <button className="desconto-btn-aplicar" onClick={aplicarDescontoPossivel} disabled={limiteDesconto.possivel <= 0}>
+                                    Aplicar o máximo
                                 </button>
                             </div>
                         </div>
