@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import './ModalAbrirOS.css';
+import ModalCliente from '../ModalCliente/ModalCliente';
 
 // Mesmos ids/labels do checklist do app (vendasApp/src/constants/checklistOS.js), sem os itens de foto,
 // para a OS aberta no PDV aparecer igual nas telas e no PDF do app.
@@ -11,7 +12,7 @@ const CHECKLIST_PDV = [
     { id: 9, label: 'Combustível suficiente?' },
 ];
 
-const ModalAbrirOS = ({ onConfirmar, onClose, salvando, totalItens }) => {
+const ModalAbrirOS = ({ onConfirmar, onClose, salvando, totalItens, cliente, onAlterarCliente }) => {
     const [placa, setPlaca] = useState('');
     const [marca, setMarca] = useState('');
     const [modelo, setModelo] = useState('');
@@ -21,14 +22,16 @@ const ModalAbrirOS = ({ onConfirmar, onClose, salvando, totalItens }) => {
     // { [id]: true | false } — ausente = não verificado
     const [respostas, setRespostas] = useState({});
     const [erro, setErro] = useState('');
+    const [buscandoCliente, setBuscandoCliente] = useState(false);
 
     useEffect(() => {
         const handleKeyDown = (e) => {
-            if (e.key === 'Escape' && !salvando) onClose();
+            // Com a busca de cliente aberta, o Esc fecha só ela.
+            if (e.key === 'Escape' && !salvando && !buscandoCliente) onClose();
         };
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [onClose, salvando]);
+    }, [onClose, salvando, buscandoCliente]);
 
     const responder = (id, valor) => {
         setRespostas((atual) => {
@@ -78,6 +81,23 @@ const ModalAbrirOS = ({ onConfirmar, onClose, salvando, totalItens }) => {
                 </div>
 
                 <div className="aos-body">
+                    <div className="aos-campo">
+                        <label>Cliente</label>
+                        <div className="aos-cliente">
+                            <span className={cliente ? 'aos-cliente-nome' : 'aos-cliente-vazio'}>
+                                {cliente?.nome || 'Nenhum cliente (opcional)'}
+                            </span>
+                            <button type="button" className="aos-btn-secundario" onClick={() => setBuscandoCliente(true)} disabled={salvando}>
+                                {cliente ? 'Trocar' : 'Selecionar'}
+                            </button>
+                            {cliente && (
+                                <button type="button" className="aos-btn-secundario" onClick={() => onAlterarCliente(null)} disabled={salvando}>
+                                    Remover
+                                </button>
+                            )}
+                        </div>
+                    </div>
+
                     <div className="aos-grid">
                         <div className="aos-campo">
                             <label htmlFor="aos-placa">Placa *</label>
@@ -170,6 +190,16 @@ const ModalAbrirOS = ({ onConfirmar, onClose, salvando, totalItens }) => {
                     </button>
                 </div>
             </div>
+
+            {buscandoCliente && (
+                <ModalCliente
+                    onSelecionarCliente={(c) => {
+                        onAlterarCliente(c);
+                        setBuscandoCliente(false);
+                    }}
+                    onClose={() => setBuscandoCliente(false)}
+                />
+            )}
         </div>
     );
 };

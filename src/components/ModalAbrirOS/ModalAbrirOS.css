@@ -247,3 +247,20 @@
         flex-direction: column;
     }
 }
+
+.aos-cliente {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.aos-cliente-nome {
+    flex: 1;
+    font-weight: 600;
+}
+
+.aos-cliente-vazio {
+    flex: 1;
+    opacity: 0.6;
+}

@@ -1,0 +1,124 @@
+.fat-modal {
+    width: 860px;
+}
+
+.fat-busca {
+    width: 100%;
+    box-sizing: border-box;
+    background: #1a1a1a;
+    border: 1px solid #3d3d3d;
+    border-radius: 8px;
+    color: #fff;
+    padding: 9px 12px;
+    font-size: 14px;
+    margin-bottom: 10px;
+}
+
+.fat-tabela {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+}
+
+.fat-tabela th {
+    text-align: left;
+    color: #9a9a9a;
+    font-size: 12px;
+    text-transform: uppercase;
+    padding: 6px 8px;
+    border-bottom: 1px solid #3d3d3d;
+}
+
+.fat-tabela td {
+    padding: 8px;
+    border-bottom: 1px solid #2e2e2e;
+    color: #eee;
+}
+
+.fat-tabela .num {
+    text-align: right;
+    white-space: nowrap;
+}
+
+.fat-aberto {
+    color: #ffb74d;
+    font-weight: 600;
+}
+
+.fat-acoes {
+    display: flex;
+    gap: 6px;
+    justify-content: flex-end;
+}
+
+.fat-acoes button {
+    padding: 6px 10px;
+    font-size: 13px;
+}
+
+.fat-vazio {
+    color: #9a9a9a;
+    text-align: center;
+    padding: 20px 0;
+}
+
+.fat-resumo {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    gap: 10px;
+    margin-bottom: 14px;
+}
+
+.fat-resumo div {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    background: #1a1a1a;
+    border: 1px solid #3d3d3d;
+    border-radius: 8px;
+    padding: 8px 10px;
+}
+
+.fat-resumo span {
+    font-size: 11px;
+    text-transform: uppercase;
+    color: #9a9a9a;
+}
+
+.fat-resumo strong {
+    color: #fff;
+}
+
+.fat-modos,
+.fat-metodos {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+}
+
+.fat-modos button,
+.fat-metodos button {
+    background: transparent;
+    border: 1px solid #3d3d3d;
+    color: #ccc;
+    border-radius: 8px;
+    padding: 8px 14px;
+    cursor: pointer;
+}
+
+.fat-modos button.ativo,
+.fat-metodos button.ativo {
+    border-color: #f0660a;
+    background: rgba(240, 102, 10, 0.15);
+    color: #fff;
+}
+
+.fat-aviso {
+    background: rgba(76, 175, 80, 0.15);
+    border: 1px solid #4caf50;
+    color: #a5d6a7;
+    border-radius: 8px;
+    padding: 8px 12px;
+    margin-bottom: 12px;
+}

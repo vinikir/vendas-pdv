@@ -11,6 +11,7 @@ import ModalSelecionarVendedor from '../../components/ModalSelecionarVendedor/Mo
 import ModalAuditoria from '../../components/ModalAuditoria/ModalAuditoria';
 import ModalAbrirOS from '../../components/ModalAbrirOS/ModalAbrirOS';
 import ModalListarOS from '../../components/ModalAbrirOS/ModalListarOS';
+import ModalFaturados from '../../components/ModalFaturados/ModalFaturados';
 import Modal from '../../components/modal/modal';
 import useUsuarioStore from '../../store/useUsuarioStore';
 import { useAuth } from '../../Contexts/AuthContext';
@@ -83,6 +84,7 @@ const PDV = () => {
     // OS carregada no PDV: o carrinho passa a ser os itens dela (estoque reservado no back).
     const [osAtual, setOsAtual] = useState(null);
     const [mostrarModalAbrirOS, setMostrarModalAbrirOS] = useState(false);
+    const [mostrarModalFaturados, setMostrarModalFaturados] = useState(false);
     const [mostrarModalListarOS, setMostrarModalListarOS] = useState(false);
     const [salvandoOS, setSalvandoOS] = useState(false);
     const [motivoCancelamentoOS, setMotivoCancelamentoOS] = useState(null); // null = modal fechado
@@ -133,7 +135,7 @@ const PDV = () => {
             }
             if (e.key === "F2") {
                 e.preventDefault();
-                if (!osAtualRef.current) setMostrarModalCliente(true)
+                setMostrarModalCliente(true)
             }
             if (e.key === "F3") {
                 e.preventDefault();
@@ -679,6 +681,35 @@ const PDV = () => {
         }).finally(() => setSalvandoOS(false));
     };
 
+    // Com OS aberta, trocar/remover o cliente grava na própria OS.
+    const alterarCliente = (cliente) => {
+        const ordem = osAtualRef.current;
+        if (!ordem) {
+            setClienteSelecionado(cliente);
+            return;
+        }
+        const clienteId = obterIdCliente(cliente);
+        const anterior = clienteSelecionado;
+        setClienteSelecionado(cliente);
+        api.post('ordem-servico/atualizar', {
+            _id: ordem._id,
+            clienteId: clienteId || '',
+            clienteNome: clienteId ? cliente.nome : '',
+            usuarioId: usuario?.id,
+            usuarioNome: usuario?.nome,
+        }).then((res) => {
+            const atualizada = res.data?.valor?.ordem;
+            if (atualizada) {
+                setOsAtual(atualizada);
+                osAtualRef.current = atualizada;
+            }
+        }).catch((err) => {
+            setClienteSelecionado(anterior);
+            setMsgModal(err.response?.data?.valor || 'Erro ao alterar o cliente da OS.');
+            setModalAberto(true);
+        });
+    };
+
     const carregarOS = (ordem) => {
         if (itensSelecionadosRef.current.length > 0) {
             setMsgModal('Finalize ou limpe a venda atual antes de abrir uma OS.');
@@ -1119,7 +1150,7 @@ const PDV = () => {
                                     <button
                                         type="button"
                                         className="btn-remover-cliente"
-                                        onClick={() => setClienteSelecionado(null)}
+                                        onClick={() => alterarCliente(null)}
                                         aria-label="Remover cliente"
                                         title="Remover cliente"
                                     >
@@ -1265,6 +1296,11 @@ const PDV = () => {
                                 <button className="atalho-btn" onClick={() => setMostrarModalListarOS(true)}>
                                     <span className="atalho-key">F10</span>
                                     <span className="atalho-label">OS abertas</span>
+                                </button>
+                            </li>
+                            <li>
+                                <button className="atalho-btn" onClick={() => setMostrarModalFaturados(true)}>
+                                    <span className="atalho-label">Faturados</span>
                                 </button>
                             </li>
                             <li>
@@ -1436,8 +1472,7 @@ const PDV = () => {
                 mostrarModalCliente && (
                     <ModalCliente
                         onSelecionarCliente={(cliente) => {
-                            setClienteSelecionado(cliente)
-                            console.log('Cliente selecionado:', cliente);
+                            alterarCliente(cliente);
                             setMostrarModalCliente(false);
                         }}
 
@@ -1798,9 +1833,16 @@ const PDV = () => {
                     <ModalAbrirOS
                         salvando={salvandoOS}
                         totalItens={itensSelecionados.length}
+                        cliente={clienteSelecionado}
+                        onAlterarCliente={setClienteSelecionado}
                         onConfirmar={confirmarAberturaOS}
                         onClose={() => setMostrarModalAbrirOS(false)}
                     />
+                )
+            }
+            {
+                mostrarModalFaturados && (
+                    <ModalFaturados onClose={() => setMostrarModalFaturados(false)} />
                 )
             }
             {
