@@ -319,21 +319,56 @@ export const gerarEBaixarPdfVenda = async ({ venda, vendedor, itens = [], pagame
             logging: false,
         });
 
-        const imgData = canvas.toDataURL('image/png');
         const pdf = new jsPDF('p', 'mm', 'a4');
-        const imgProps = pdf.getImageProperties(imgData);
         const margem = 10;
         const larguraDisponivel = pdf.internal.pageSize.getWidth() - margem * 2;
-        const alturaImagem = (imgProps.height * larguraDisponivel) / imgProps.width;
-
-        // Conteúdo maior que uma página (ex: OS com moto + checklist): reposiciona a mesma imagem em páginas novas.
         const alturaUtil = pdf.internal.pageSize.getHeight() - margem * 2;
-        let deslocamento = 0;
-        pdf.addImage(imgData, 'PNG', margem, margem, larguraDisponivel, alturaImagem);
-        while (alturaImagem - deslocamento > alturaUtil) {
-            deslocamento += alturaUtil;
-            pdf.addPage();
-            pdf.addImage(imgData, 'PNG', margem, margem - deslocamento, larguraDisponivel, alturaImagem);
+
+        // Escala: px do HTML -> px do canvas -> mm do PDF.
+        const larguraHtml = tempDiv.offsetWidth || 800;
+        const pxCanvasPorPxHtml = canvas.width / larguraHtml;
+        const mmPorPxHtml = larguraDisponivel / larguraHtml;
+        const alturaPaginaPx = alturaUtil / mmPorPxHtml;
+        const alturaTotalPx = canvas.height / pxCanvasPorPxHtml;
+
+        // Blocos que não podem ser cortados ao meio (linhas da tabela, linhas de info, títulos...).
+        const topoDiv = tempDiv.getBoundingClientRect().top;
+        const blocos = Array.from(tempDiv.querySelectorAll(
+            'tr, .info-row, .header, .titulo-venda, .secao-titulo, .pagamento-title, .total-row, .footer p'
+        )).map((el) => {
+            const r = el.getBoundingClientRect();
+            return { topo: r.top - topoDiv, base: r.bottom - topoDiv };
+        });
+        const corteValido = (y) => !blocos.some((b) => b.topo < y - 0.5 && b.base > y + 0.5);
+        const candidatos = Array.from(new Set(blocos.flatMap((b) => [b.topo, b.base])))
+            .sort((a, b) => a - b);
+
+        // Cada página termina no fim do último bloco que cabe inteiro; a próxima começa exatamente ali.
+        const cortes = [0];
+        while (alturaTotalPx - cortes[cortes.length - 1] > alturaPaginaPx) {
+            const inicio = cortes[cortes.length - 1];
+            const limite = inicio + alturaPaginaPx;
+            const melhor = candidatos.filter((y) => y > inicio + 1 && y <= limite && corteValido(y)).pop();
+            cortes.push(melhor !== undefined ? melhor : limite);
+        }
+        cortes.push(alturaTotalPx);
+
+        for (let k = 0; k < cortes.length - 1; k++) {
+            const inicioPx = Math.round(cortes[k] * pxCanvasPorPxHtml);
+            const fimPx = Math.min(canvas.height, Math.round(cortes[k + 1] * pxCanvasPorPxHtml));
+            if (fimPx - inicioPx < 1) continue;
+
+            const fatia = document.createElement('canvas');
+            fatia.width = canvas.width;
+            fatia.height = fimPx - inicioPx;
+            const ctx = fatia.getContext('2d');
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, fatia.width, fatia.height);
+            ctx.drawImage(canvas, 0, inicioPx, canvas.width, fatia.height, 0, 0, canvas.width, fatia.height);
+
+            if (k > 0) pdf.addPage();
+            const alturaFatiaMm = (fatia.height / pxCanvasPorPxHtml) * mmPorPxHtml;
+            pdf.addImage(fatia.toDataURL('image/png'), 'PNG', margem, margem, larguraDisponivel, alturaFatiaMm);
         }
 
         const nomeArquivo = `GM_Venda_${venda?.vendaId || 'venda'}_${dataVendaMoment.format('DDMMYYYY_HHmm')}.pdf`;
