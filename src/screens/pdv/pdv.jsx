@@ -85,6 +85,8 @@ const PDV = () => {
     const [mostrarModalAbrirOS, setMostrarModalAbrirOS] = useState(false);
     const [mostrarModalListarOS, setMostrarModalListarOS] = useState(false);
     const [salvandoOS, setSalvandoOS] = useState(false);
+    const [motivoCancelamentoOS, setMotivoCancelamentoOS] = useState(null); // null = modal fechado
+    const [erroMotivoOS, setErroMotivoOS] = useState('');
     const osAtualRef = useRef(osAtual);
     osAtualRef.current = osAtual;
     const acaoAposVendedorRef = useRef(null);
@@ -622,7 +624,7 @@ const PDV = () => {
         setMostrarModalAbrirOS(true);
     };
 
-    const confirmarAberturaOS = (dados, acao) => {
+    const confirmarAberturaOS = (dados) => {
         const vendedor = vendedorSelecionadoRef.current;
         if (!vendedor) return;
         const itens = itensSelecionadosRef.current.map(itemParaOS);
@@ -661,23 +663,15 @@ const PDV = () => {
 
             setMostrarModalAbrirOS(false);
 
-            if (acao === 'finalizar' && ordem) {
+            // Volta para o carrinho já em modo OS: daí o balconista adiciona itens,
+            // salva e libera o PDV (F9) ou finaliza (F3).
+            if (ordem) {
                 setOsAtual(ordem);
                 osAtualRef.current = ordem;
-                const itensOS = ordem.produtos || [];
-                setItensSelecionados(itensOS);
-                itensSelecionadosRef.current = itensOS;
-                if (semEstoque.length > 0) {
-                    setMsgModal(mensagemItensSemEstoque(semEstoque));
-                    setModalAberto(true);
-                    return;
-                }
-                abrirFinalizar(itensOS, true);
-                return;
+                setItensSelecionados(ordem.produtos || []);
+                itensSelecionadosRef.current = ordem.produtos || [];
             }
-
-            limparEstadoOS();
-            setMsgModal(`OS Nº ${ordem?.ordemServicoId ?? ''} aberta. PDV liberado.` + (semEstoque.length > 0 ? `\n\n${mensagemItensSemEstoque(semEstoque)}` : ''));
+            setMsgModal(`OS Nº ${ordem?.ordemServicoId ?? ''} criada.` + (semEstoque.length > 0 ? `\n\n${mensagemItensSemEstoque(semEstoque)}` : ''));
             setModalAberto(true);
         }).catch((err) => {
             setMsgModal(err.response?.data?.valor || 'Erro ao abrir a ordem de serviço.');
@@ -738,6 +732,49 @@ const PDV = () => {
             limparEstadoOS();
             setMsgModal(`OS Nº ${ordem.ordemServicoId ?? ''} salva. PDV liberado.`);
             setModalAberto(true);
+        });
+    };
+
+    // Cancelar OS: motivo primeiro, depois o administrador autoriza (mesmo fluxo de cancelar venda).
+    // O back devolve o estoque reservado e mantém a OS no histórico como cancelada.
+    const iniciarCancelamentoOS = () => {
+        if (!osAtualRef.current) return;
+        setErroMotivoOS('');
+        setMotivoCancelamentoOS('');
+    };
+
+    const confirmarMotivoCancelamentoOS = (e) => {
+        e.preventDefault();
+        const motivo = (motivoCancelamentoOS || '').trim();
+        if (!motivo) {
+            setErroMotivoOS('Informe o motivo do cancelamento.');
+            return;
+        }
+        setMotivoCancelamentoOS(null);
+        const ordem = osAtualRef.current;
+        if (!ordem) return;
+
+        solicitarAutenticacaoAdmin({
+            descricao: `Autorização de administrador para cancelar a OS Nº ${ordem.ordemServicoId}. Motivo: ${motivo}`,
+            permissao: ['ordem_servico', 'cancelar'],
+            onSucesso: (admin) => {
+                setSalvandoOS(true);
+                api.post('ordem-servico/cancelar', {
+                    _id: ordem._id,
+                    motivo,
+                    usuarioId: admin.id,
+                    usuarioNome: admin.nome,
+                }, {
+                    headers: { Authorization: `Bearer ${admin.token}` }
+                }).then(() => {
+                    limparEstadoOS();
+                    setMsgModal(`OS Nº ${ordem.ordemServicoId} cancelada. O estoque reservado foi devolvido.`);
+                    setModalAberto(true);
+                }).catch((err) => {
+                    setMsgModal(err.response?.data?.valor || 'Erro ao cancelar a OS.');
+                    setModalAberto(true);
+                }).finally(() => setSalvandoOS(false));
+            }
         });
     };
 
@@ -1127,6 +1164,11 @@ const PDV = () => {
                                     <span className="atalho-label">Sair sem salvar</span>
                                 </button>
                             </li>
+                            <li>
+                                <button className="atalho-btn atalho-btn-perigo" onClick={iniciarCancelamentoOS} disabled={salvandoOS}>
+                                    <span className="atalho-label">Cancelar OS</span>
+                                </button>
+                            </li>
                         </ul>
                     ) : modoVisualizacao ? (
                         <ul>
@@ -1436,6 +1478,41 @@ const PDV = () => {
                                 {erroMotivoCancelamento && <div className="vnd-erro">{erroMotivoCancelamento}</div>}
                                 <div className="vnd-footer">
                                     <button type="button" className="vnd-btn-cancelar" onClick={() => setMotivoCancelamento(null)}>
+                                        Voltar
+                                    </button>
+                                    <button type="submit" className="vnd-btn-confirmar">
+                                        Continuar
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                )
+            }
+            {
+                motivoCancelamentoOS !== null && (
+                    <div className="vnd-overlay" onClick={(e) => { if (e.target === e.currentTarget) setMotivoCancelamentoOS(null); }}>
+                        <div className="vnd-modal">
+                            <div className="vnd-header">
+                                <h3>Cancelar OS Nº {osAtual?.ordemServicoId}</h3>
+                                <button onClick={() => setMotivoCancelamentoOS(null)} className="vnd-close-btn">&times;</button>
+                            </div>
+                            <form className="vnd-form" onSubmit={confirmarMotivoCancelamentoOS}>
+                                <p className="vnd-descricao">O estoque reservado volta para o disponível e a OS fica no histórico como cancelada.</p>
+                                <div className="vnd-form-group">
+                                    <label htmlFor="motivo-cancelamento-os">Motivo do cancelamento</label>
+                                    <textarea
+                                        id="motivo-cancelamento-os"
+                                        rows={3}
+                                        maxLength={500}
+                                        value={motivoCancelamentoOS}
+                                        onChange={(e) => setMotivoCancelamentoOS(e.target.value)}
+                                        autoFocus
+                                    />
+                                </div>
+                                {erroMotivoOS && <div className="vnd-erro">{erroMotivoOS}</div>}
+                                <div className="vnd-footer">
+                                    <button type="button" className="vnd-btn-cancelar" onClick={() => setMotivoCancelamentoOS(null)}>
                                         Voltar
                                     </button>
                                     <button type="submit" className="vnd-btn-confirmar">

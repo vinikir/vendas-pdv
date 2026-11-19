@@ -39,7 +39,7 @@ const ModalAbrirOS = ({ onConfirmar, onClose, salvando, totalItens }) => {
         });
     };
 
-    const confirmar = (acao) => {
+    const confirmar = () => {
         const placaLimpa = placa.trim().toUpperCase();
         if (!placaLimpa) {
             setErro('Informe a placa.');
@@ -66,7 +66,7 @@ const ModalAbrirOS = ({ onConfirmar, onClose, salvando, totalItens }) => {
             km: km ? Number(km) : '',
             servicoASerExecutado: servico.trim(),
             checkList,
-        }, acao);
+        });
     };
 
     return (
@@ -154,8 +154,8 @@ const ModalAbrirOS = ({ onConfirmar, onClose, salvando, totalItens }) => {
 
                     <p className="aos-dica">
                         {totalItens > 0
-                            ? `${totalItens} item(ns) do carrinho entram na OS e o estoque fica reservado.`
-                            : 'A OS abre sem itens; você pode adicionar peças depois.'}
+                            ? `${totalItens} item(ns) do carrinho entram na OS e o estoque fica reservado. Depois de criar, você volta para o carrinho da OS para adicionar itens, salvar e liberar ou finalizar.`
+                            : 'A OS é criada sem itens. Depois de criar, você volta para o carrinho da OS para adicionar itens, salvar e liberar ou finalizar.'}
                     </p>
 
                     {erro && <div className="aos-erro">{erro}</div>}
@@ -165,11 +165,8 @@ const ModalAbrirOS = ({ onConfirmar, onClose, salvando, totalItens }) => {
                     <button type="button" className="aos-btn-secundario" onClick={onClose} disabled={salvando}>
                         Cancelar
                     </button>
-                    <button type="button" className="aos-btn-secundario" onClick={() => confirmar('liberar')} disabled={salvando}>
-                        {salvando ? 'Salvando...' : 'Abrir e liberar PDV'}
-                    </button>
-                    <button type="button" className="aos-btn-primario" onClick={() => confirmar('finalizar')} disabled={salvando}>
-                        {salvando ? 'Salvando...' : 'Abrir e finalizar'}
+                    <button type="button" className="aos-btn-primario" onClick={confirmar} disabled={salvando}>
+                        {salvando ? 'Criando...' : 'Criar OS'}
                     </button>
                 </div>
             </div>
