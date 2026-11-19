@@ -21,6 +21,7 @@ export const criarHtmlVenda = ({
     pagamentos = [],
     logoUrl = LOGO_GEM_BASE64,
     dataVenda = moment(),
+    ordem = null,
 }) => {
     const totalVenda = itens.reduce((total, item) => total + (item?.valorTotal || 0), 0);
     const vendaId = escapeHtml(venda?.vendaId || '');
@@ -37,6 +38,49 @@ export const criarHtmlVenda = ({
                 <td style="text-align: right; padding: 12px 8px; vertical-align: middle; font-weight: bold;">R$ ${formatCurrency(item?.valorTotal)}</td>
             </tr>
         `).join('');
+
+    // Venda vinda de OS: dados da moto, serviço e checklist de entrada.
+    const respostaChecklist = (item) => {
+        if (item?.tipo && item.tipo !== 'boolean') return escapeHtml(item?.value || '-');
+        if (item?.realizado === false) return '<span style="color:#999;">Não verificado</span>';
+        return item?.value ? '<span style="color:#2e7d32;font-weight:bold;">Sim</span>' : '<span style="color:#c62828;font-weight:bold;">Não</span>';
+    };
+    const checklist = Array.isArray(ordem?.checkList) ? ordem.checkList.filter((i) => i?.tipo !== 'foto') : [];
+    const linhaMoto = (label, valor) => `
+                <div class="info-row">
+                    <span class="info-label">${label}:</span>
+                    <span>${escapeHtml(valor === undefined || valor === null || valor === '' ? '-' : valor)}</span>
+                </div>`;
+    const secaoOS = ordem ? `
+            <div class="secao-os">
+                <div class="secao-titulo">Dados da moto</div>
+                <div class="grid-moto">
+                    ${linhaMoto('Placa', ordem.placa)}
+                    ${linhaMoto('Marca', ordem.marca)}
+                    ${linhaMoto('Modelo', ordem.modelo)}
+                    ${linhaMoto('Cor', ordem.cor)}
+                    ${linhaMoto('KM', ordem.km)}
+                </div>
+                ${ordem.servicoASerExecutado ? `
+                <div class="info-row" style="margin-top:8px;">
+                    <span class="info-label">Serviço:</span>
+                    <span>${escapeHtml(ordem.servicoASerExecutado)}</span>
+                </div>` : ''}
+            </div>
+            ${checklist.length > 0 ? `
+            <div class="secao-os">
+                <div class="secao-titulo">Checklist de entrada</div>
+                <table class="tabela-checklist">
+                    <tbody>
+                        ${checklist.map((item) => `
+                        <tr style="border-bottom: 1px solid #e0e0e0;">
+                            <td style="padding: 6px 8px;">${escapeHtml(item?.label)}${item?.observacao ? `<br><span style="font-size:12px;color:#777;">${escapeHtml(item.observacao)}</span>` : ''}</td>
+                            <td style="padding: 6px 8px; text-align: right; width: 140px;">${respostaChecklist(item)}</td>
+                        </tr>`).join('')}
+                    </tbody>
+                </table>
+            </div>` : ''}
+    ` : '';
 
     const formatarPagamentos = pagamentos.map((p) => {
         const temTroco = p?.troco > 0;
@@ -162,6 +206,30 @@ export const criarHtmlVenda = ({
                 padding-top: 10px;
                 border-top: 2px solid #2a2a2a;
             }
+            .secao-os {
+                margin-bottom: 20px;
+                padding: 12px 15px;
+                border: 1px solid #e0e0e0;
+                border-radius: 5px;
+            }
+            .secao-titulo {
+                font-weight: bold;
+                color: #f0660a;
+                margin-bottom: 8px;
+                text-transform: uppercase;
+                font-size: 14px;
+            }
+            .grid-moto {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                column-gap: 20px;
+            }
+            .grid-moto .info-label {
+                min-width: 70px;
+            }
+            .tabela-checklist {
+                margin-bottom: 0;
+            }
             .footer {
                 margin-top: 40px;
                 text-align: center;
@@ -183,7 +251,7 @@ export const criarHtmlVenda = ({
                 </div>
             </div>
 
-            <div class="titulo-venda">VENDA Nº ${vendaId}</div>
+            <div class="titulo-venda">${ordem ? 'ORDEM DE SERVIÇO' : 'VENDA'} Nº ${ordem ? escapeHtml(ordem.ordemServicoId ?? vendaId) : vendaId}</div>
 
             <div class="info-venda">
                 <div class="info-row">
@@ -199,6 +267,8 @@ export const criarHtmlVenda = ({
                     <span>${clienteNome}</span>
                 </div>
             </div>
+
+            ${secaoOS}
 
             <table>
                 <thead>
@@ -232,9 +302,9 @@ export const criarHtmlVenda = ({
     `;
 };
 
-export const gerarEBaixarPdfVenda = async ({ venda, vendedor, itens = [], pagamentos = [], dataVenda }) => {
+export const gerarEBaixarPdfVenda = async ({ venda, vendedor, itens = [], pagamentos = [], dataVenda, ordem = null }) => {
     const dataVendaMoment = dataVenda ? moment(dataVenda) : moment();
-    const html = criarHtmlVenda({ venda, vendedor, itens, pagamentos, dataVenda: dataVendaMoment });
+    const html = criarHtmlVenda({ venda, vendedor, itens, pagamentos, dataVenda: dataVendaMoment, ordem });
 
     const tempDiv = document.createElement('div');
     tempDiv.innerHTML = html;
@@ -256,7 +326,15 @@ export const gerarEBaixarPdfVenda = async ({ venda, vendedor, itens = [], pagame
         const larguraDisponivel = pdf.internal.pageSize.getWidth() - margem * 2;
         const alturaImagem = (imgProps.height * larguraDisponivel) / imgProps.width;
 
+        // Conteúdo maior que uma página (ex: OS com moto + checklist): reposiciona a mesma imagem em páginas novas.
+        const alturaUtil = pdf.internal.pageSize.getHeight() - margem * 2;
+        let deslocamento = 0;
         pdf.addImage(imgData, 'PNG', margem, margem, larguraDisponivel, alturaImagem);
+        while (alturaImagem - deslocamento > alturaUtil) {
+            deslocamento += alturaUtil;
+            pdf.addPage();
+            pdf.addImage(imgData, 'PNG', margem, margem - deslocamento, larguraDisponivel, alturaImagem);
+        }
 
         const nomeArquivo = `GM_Venda_${venda?.vendaId || 'venda'}_${dataVendaMoment.format('DDMMYYYY_HHmm')}.pdf`;
         pdf.save(nomeArquivo);

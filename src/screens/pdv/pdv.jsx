@@ -227,12 +227,24 @@ const PDV = () => {
         const venda = modoVisualizacao.dados;
         setGerandoNotaVisualizacao(true);
         try {
+            // Venda que veio de OS: busca a OS para sair moto + checklist na nota.
+            let ordem = null;
+            if (venda.ordemServicoId) {
+                try {
+                    const r = await api.get('ordem-servico', { params: { _id: venda.ordemServicoId } });
+                    const lista = r.data?.valor;
+                    ordem = Array.isArray(lista) ? (lista.find((o) => obterIdRegistro(o) === String(venda.ordemServicoId)) || null) : null;
+                } catch (e) {
+                    console.log('Erro ao buscar OS da venda', e);
+                }
+            }
             await gerarEBaixarPdfVenda({
-                venda: { vendaId: venda.vendaId, cliente: venda.clienteNome },
+                venda: { vendaId: ordem ? `OS ${ordem.ordemServicoId}` : venda.vendaId, cliente: venda.clienteNome },
                 vendedor: { nome: venda.vendedorNome },
                 itens: venda.produtos || [],
                 pagamentos: venda.pagamento || [],
-                dataVenda: venda.data
+                dataVenda: venda.data,
+                ordem
             });
         } catch (e) {
             console.log('Erro ao gerar PDF da venda', e);
@@ -998,7 +1010,8 @@ const PDV = () => {
                 vendedorNome: vendedorSelecionado?.nome,
                 itens: itensSelecionados,
                 pagamentos: pagamentosAdicionados.map((p) => ({ metodo: p.metodo, valor: p.valor, valorRecebido: p.valorRecebido, troco: p.troco })),
-                data: vendaSalva?.data
+                data: vendaSalva?.data,
+                ordem: ordemAtual
             });
             setMostrarModalFinalizar(false);
             setMetodoAtual('dinheiro');
@@ -1038,7 +1051,8 @@ const PDV = () => {
                 vendedor: { nome: dadosParaNota.vendedorNome },
                 itens: dadosParaNota.itens,
                 pagamentos: dadosParaNota.pagamentos,
-                dataVenda: dadosParaNota.data
+                dataVenda: dadosParaNota.data,
+                ordem: dadosParaNota.ordem
             });
         } catch (e) {
             console.log('Erro ao gerar PDF da venda', e);
