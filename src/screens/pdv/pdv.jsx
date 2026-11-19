@@ -1173,6 +1173,12 @@ const PDV = () => {
                                 </button>
                             </li>
                             <li>
+                                <button className="atalho-btn" onClick={() => setMostrarModalCliente(true)} disabled={salvandoOS}>
+                                    <span className="atalho-key">F2</span>
+                                    <span className="atalho-label">Cliente</span>
+                                </button>
+                            </li>
+                            <li>
                                 <button className="atalho-btn" onClick={() => abrirFinalizar()} disabled={salvandoOS}>
                                     <span className="atalho-key">F3</span>
                                     <span className="atalho-label">Finalizar OS</span>
