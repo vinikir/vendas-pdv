@@ -4,7 +4,16 @@ import useUsuarioStore from '../store/useUsuarioStore';
 const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
-    const [usuario, setUsuarioContext] = useState(null);
+    // Lê o localStorage já no primeiro render: se esperar o useEffect, a RotaPrivada
+    // vê usuario=null no refresh e manda de volta pro login.
+    const [usuario, setUsuarioContext] = useState(() => {
+        try {
+            const usuarioSalvo = localStorage.getItem('usuario');
+            return usuarioSalvo ? JSON.parse(usuarioSalvo) : null;
+        } catch {
+            return null;
+        }
+    });
     const setUsuarioStore = useUsuarioStore((state) => state.setUsuario);
     const limparUsuarioStore = useUsuarioStore((state) => state.limparUsuario);
 
@@ -13,15 +22,11 @@ export const AuthProvider = ({ children }) => {
         nome: dadosUsuario?.nome ?? dadosUsuario?.nome_usuario ?? dadosUsuario?.login ?? "",
     });
 
-    // Tenta restaurar o usuário do localStorage ao carregar o app
+    // Mantém o store em sincronia com o usuário restaurado do localStorage
     useEffect(() => {
-        const usuarioSalvo = localStorage.getItem('usuario');
-        if (usuarioSalvo) {
-            const dadosUsuario = JSON.parse(usuarioSalvo);
-            setUsuarioContext(dadosUsuario);
-            setUsuarioStore(mapearUsuarioParaStore(dadosUsuario));
-        }
-    }, [setUsuarioStore]);
+        if (usuario) setUsuarioStore(mapearUsuarioParaStore(usuario));
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     const login = (dadosUsuario) => {
         localStorage.setItem('usuario', JSON.stringify(dadosUsuario));
